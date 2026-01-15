@@ -211,9 +211,18 @@ function PureMultimodalInput({
     prepareDeepCitation,
   ]);
 
-  // Reset DeepCitation data when attachments change
+  // Auto-enable DeepCitation when attachments are added (if not already enabled)
+  // Also reset prepared data when attachments change
   useEffect(() => {
-    if (deepCitation.enabled && deepCitation.deepTextPromptPortion) {
+    if (attachments.length > 0 && !deepCitation.enabled) {
+      // Auto-enable citations when files are uploaded
+      setDeepCitation((prev) => ({
+        ...prev,
+        enabled: true,
+        deepTextPromptPortion: undefined,
+        fileDataParts: undefined,
+      }));
+    } else if (deepCitation.enabled && deepCitation.deepTextPromptPortion) {
       // Clear prepared data when attachments change
       setDeepCitation((prev) => ({
         ...prev,
@@ -474,45 +483,52 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        {attachments.length > 0 && (
-          <div className="flex items-center gap-2 px-2">
-            <button
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
-                deepCitation.enabled
-                  ? "bg-primary/10 text-primary"
+        <div className="flex items-center gap-2 px-2">
+          <button
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all duration-200",
+              attachments.length === 0
+                ? "cursor-not-allowed bg-muted/50 text-muted-foreground/50"
+                : deepCitation.enabled
+                  ? "bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}
-              disabled={deepCitation.isPreparing}
-              onClick={() => {
-                setDeepCitation((prev) => ({
-                  ...prev,
-                  enabled: !prev.enabled,
-                  // Reset prepared data when toggling
-                  deepTextPromptPortion: undefined,
-                  fileDataParts: undefined,
-                }));
-              }}
-              type="button"
-            >
-              {deepCitation.isPreparing ? (
-                <Loader2Icon className="size-3 animate-spin" />
-              ) : (
-                <FileTextIcon className="size-3" />
-              )}
-              <span>
-                {deepCitation.isPreparing
-                  ? "Preparing..."
+            )}
+            disabled={attachments.length === 0 || deepCitation.isPreparing}
+            onClick={() => {
+              setDeepCitation((prev) => ({
+                ...prev,
+                enabled: !prev.enabled,
+                // Reset prepared data when toggling
+                deepTextPromptPortion: undefined,
+                fileDataParts: undefined,
+              }));
+            }}
+            title={
+              attachments.length === 0
+                ? "Upload a PDF to enable citations"
+                : undefined
+            }
+            type="button"
+          >
+            {deepCitation.isPreparing ? (
+              <Loader2Icon className="size-3 animate-spin" />
+            ) : (
+              <FileTextIcon className="size-3" />
+            )}
+            <span>
+              {deepCitation.isPreparing
+                ? "Preparing..."
+                : attachments.length === 0
+                  ? "Citations"
                   : deepCitation.enabled
                     ? "Citations On"
                     : "Enable Citations"}
-              </span>
-              {deepCitation.enabled && !deepCitation.isPreparing && (
-                <CheckIcon className="size-3" />
-              )}
-            </button>
-          </div>
-        )}
+            </span>
+            {deepCitation.enabled &&
+              !deepCitation.isPreparing &&
+              attachments.length > 0 && <CheckIcon className="size-3" />}
+          </button>
+        </div>
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
@@ -521,7 +537,7 @@ function PureMultimodalInput({
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder="Upload a PDF and ask a question..."
             ref={textareaRef}
             rows={1}
             value={input}
