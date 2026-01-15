@@ -13,14 +13,14 @@ interface GreetingProps {
 const SAMPLE_FILES = [
   {
     name: "PPT1.pdf",
-    url: "https://raw.githubusercontent.com/DeepCitation/deepcitation-js/main/examples/assets/PPT1.pdf",
+    url: "/samples/PPT1.pdf",
     contentType: "application/pdf",
     icon: FileTextIcon,
     description: "Sample presentation PDF",
   },
   {
     name: "john-doe-50-m-chart.jpg",
-    url: "https://raw.githubusercontent.com/DeepCitation/deepcitation-js/main/examples/assets/john-doe-50-m-chart.jpg",
+    url: "/samples/john-doe-50-m-chart.jpg",
     contentType: "image/jpeg",
     icon: ImageIcon,
     description: "Sample medical chart",
