@@ -1,3 +1,4 @@
+import { wrapCitationPrompt } from "@deepcitation/deepcitation-js";
 import { geolocation } from "@vercel/functions";
 import {
   convertToModelMessages,
@@ -74,8 +75,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      messages,
+      selectedChatModel,
+      selectedVisibilityType,
+      deepCitation,
+    } = requestBody;
 
     const session = await auth();
 
@@ -171,10 +178,62 @@ export async function POST(request: Request) {
           selectedChatModel.includes("reasoning") ||
           selectedChatModel.includes("thinking");
 
+        // Prepare system and user prompts, potentially enhanced with DeepCitation
+        let finalSystemPrompt = systemPrompt({ selectedChatModel, requestHints });
+        let finalMessages = await convertToModelMessages(uiMessages);
+
+        if (
+          deepCitation?.enabled &&
+          deepCitation?.deepTextPromptPortion &&
+          deepCitation.deepTextPromptPortion.length > 0
+        ) {
+          // Get the last user message text for enhancement
+          const lastUserMessage = uiMessages.findLast((m) => m.role === "user");
+          const userTextPart = lastUserMessage?.parts?.find(
+            (p) => p.type === "text"
+          );
+          const userPrompt =
+            userTextPart && "text" in userTextPart ? userTextPart.text : "";
+
+          // Wrap prompts with citation instructions
+          const { enhancedSystemPrompt, enhancedUserPrompt } = wrapCitationPrompt(
+            {
+              systemPrompt: finalSystemPrompt,
+              userPrompt,
+              deepTextPromptPortion: deepCitation.deepTextPromptPortion,
+            }
+          );
+
+          finalSystemPrompt = enhancedSystemPrompt;
+
+          // Update the last user message with enhanced prompt
+          const messagesArray = await convertToModelMessages(uiMessages);
+          finalMessages = messagesArray.map((msg, idx) => {
+            if (idx === messagesArray.length - 1 && msg.role === "user") {
+              return {
+                ...msg,
+                content:
+                  typeof msg.content === "string"
+                    ? enhancedUserPrompt
+                    : msg.content,
+              };
+            }
+            return msg;
+          });
+
+          // Send fileDataParts back to client for verification later
+          if (deepCitation.fileDataParts) {
+            dataStream.write({
+              type: "data-deepcitation-fileparts",
+              data: deepCitation.fileDataParts,
+            } as any);
+          }
+        }
+
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: await convertToModelMessages(uiMessages),
+          system: finalSystemPrompt,
+          messages: finalMessages,
           stopWhen: stepCountIs(5),
           experimental_activeTools: isReasoningModel
             ? []

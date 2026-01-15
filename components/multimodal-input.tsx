@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, FileTextIcon, Loader2Icon } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -32,7 +32,7 @@ import {
   DEFAULT_CHAT_MODEL,
   modelsByProvider,
 } from "@/lib/ai/models";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, DeepCitationData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   PromptInput,
@@ -68,6 +68,8 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  deepCitation,
+  setDeepCitation,
 }: {
   chatId: string;
   input: string;
@@ -83,6 +85,8 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  deepCitation: DeepCitationData;
+  setDeepCitation: Dispatch<SetStateAction<DeepCitationData>>;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -144,29 +148,136 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
-  const submitForm = useCallback(() => {
+  // Prepare files for DeepCitation when toggle is enabled
+  const prepareDeepCitation = useCallback(async () => {
+    if (attachments.length === 0) return;
+
+    setDeepCitation((prev) => ({ ...prev, isPreparing: true }));
+
+    try {
+      const response = await fetch("/api/deepcitation/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: attachments.map((a) => ({
+            url: a.url,
+            filename: a.name,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDeepCitation((prev) => ({
+          ...prev,
+          deepTextPromptPortion: data.deepTextPromptPortion,
+          fileDataParts: data.fileDataParts,
+          isPreparing: false,
+        }));
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to prepare files for citation");
+        setDeepCitation((prev) => ({
+          ...prev,
+          enabled: false,
+          isPreparing: false,
+        }));
+      }
+    } catch (_error) {
+      toast.error("Failed to prepare files for citation");
+      setDeepCitation((prev) => ({
+        ...prev,
+        enabled: false,
+        isPreparing: false,
+      }));
+    }
+  }, [attachments, setDeepCitation]);
+
+  // When DeepCitation is enabled and we have attachments, prepare them
+  useEffect(() => {
+    if (
+      deepCitation.enabled &&
+      attachments.length > 0 &&
+      !deepCitation.deepTextPromptPortion &&
+      !deepCitation.isPreparing
+    ) {
+      prepareDeepCitation();
+    }
+  }, [
+    deepCitation.enabled,
+    deepCitation.deepTextPromptPortion,
+    deepCitation.isPreparing,
+    attachments.length,
+    prepareDeepCitation,
+  ]);
+
+  // Reset DeepCitation data when attachments change
+  useEffect(() => {
+    if (deepCitation.enabled && deepCitation.deepTextPromptPortion) {
+      // Clear prepared data when attachments change
+      setDeepCitation((prev) => ({
+        ...prev,
+        deepTextPromptPortion: undefined,
+        fileDataParts: undefined,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachments.length]);
+
+  const submitForm = useCallback(async () => {
+    // If DeepCitation is enabled but not prepared yet, wait for preparation
+    if (
+      deepCitation.enabled &&
+      attachments.length > 0 &&
+      !deepCitation.deepTextPromptPortion
+    ) {
+      if (deepCitation.isPreparing) {
+        toast.error("Please wait for DeepCitation to finish preparing files");
+        return;
+      }
+      // Prepare files first
+      await prepareDeepCitation();
+      return; // Will re-trigger submit after preparation
+    }
+
     window.history.pushState({}, "", `/chat/${chatId}`);
 
-    sendMessage({
-      role: "user",
-      parts: [
-        ...attachments.map((attachment) => ({
-          type: "file" as const,
-          url: attachment.url,
-          name: attachment.name,
-          mediaType: attachment.contentType,
-        })),
-        {
-          type: "text",
-          text: input,
-        },
-      ],
-    });
+    // Prepare DeepCitation body data if enabled
+    const deepCitationBody = deepCitation.enabled
+      ? {
+          deepCitation: {
+            enabled: true,
+            deepTextPromptPortion: deepCitation.deepTextPromptPortion,
+            fileDataParts: deepCitation.fileDataParts,
+          },
+        }
+      : {};
+
+    sendMessage(
+      {
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            url: attachment.url,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      },
+      { body: deepCitationBody }
+    );
 
     setAttachments([]);
     setLocalStorageInput("");
     resetHeight();
     setInput("");
+    // Reset DeepCitation state after sending
+    setDeepCitation({ enabled: false });
 
     if (width && width > 768) {
       textareaRef.current?.focus();
@@ -181,6 +292,9 @@ function PureMultimodalInput({
     width,
     chatId,
     resetHeight,
+    deepCitation,
+    setDeepCitation,
+    prepareDeepCitation,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -360,6 +474,45 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
+        {attachments.length > 0 && (
+          <div className="flex items-center gap-2 px-2">
+            <button
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+                deepCitation.enabled
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              )}
+              disabled={deepCitation.isPreparing}
+              onClick={() => {
+                setDeepCitation((prev) => ({
+                  ...prev,
+                  enabled: !prev.enabled,
+                  // Reset prepared data when toggling
+                  deepTextPromptPortion: undefined,
+                  fileDataParts: undefined,
+                }));
+              }}
+              type="button"
+            >
+              {deepCitation.isPreparing ? (
+                <Loader2Icon className="size-3 animate-spin" />
+              ) : (
+                <FileTextIcon className="size-3" />
+              )}
+              <span>
+                {deepCitation.isPreparing
+                  ? "Preparing..."
+                  : deepCitation.enabled
+                    ? "Citations On"
+                    : "Enable Citations"}
+              </span>
+              {deepCitation.enabled && !deepCitation.isPreparing && (
+                <CheckIcon className="size-3" />
+              )}
+            </button>
+          </div>
+        )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
@@ -421,6 +574,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (!equal(prevProps.deepCitation, nextProps.deepCitation)) {
       return false;
     }
 

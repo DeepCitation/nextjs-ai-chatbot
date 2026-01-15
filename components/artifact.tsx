@@ -18,7 +18,7 @@ import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { Document, Vote } from "@/lib/db/schema";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, DeepCitationData } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
@@ -69,6 +69,8 @@ function PureArtifact({
   isReadonly,
   selectedVisibilityType,
   selectedModelId,
+  deepCitation,
+  setDeepCitation,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -86,6 +88,8 @@ function PureArtifact({
   isReadonly: boolean;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
+  deepCitation: DeepCitationData;
+  setDeepCitation: Dispatch<SetStateAction<DeepCitationData>>;
 }) {
   const { artifact, setArtifact, metadata, setMetadata } = useArtifact();
 
@@ -338,12 +342,14 @@ function PureArtifact({
                     attachments={attachments}
                     chatId={chatId}
                     className="bg-background dark:bg-muted"
+                    deepCitation={deepCitation}
                     input={input}
                     messages={messages}
                     selectedModelId={selectedModelId}
                     selectedVisibilityType={selectedVisibilityType}
                     sendMessage={sendMessage}
                     setAttachments={setAttachments}
+                    setDeepCitation={setDeepCitation}
                     setInput={setInput}
                     setMessages={setMessages}
                     status={status}

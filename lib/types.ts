@@ -42,6 +42,11 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   "chat-title": string;
+  "deepcitation-fileparts": Array<{
+    fileId: string;
+    deepTextPromptPortion: string;
+    filename?: string;
+  }>;
 };
 
 export type ChatMessage = UIMessage<
@@ -54,4 +59,15 @@ export type Attachment = {
   name: string;
   url: string;
   contentType: string;
+};
+
+export type DeepCitationData = {
+  enabled: boolean;
+  deepTextPromptPortion?: string[];
+  fileDataParts?: Array<{
+    fileId: string;
+    deepTextPromptPortion: string;
+    filename?: string;
+  }>;
+  isPreparing?: boolean;
 };

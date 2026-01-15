@@ -5,6 +5,7 @@ import { memo, useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
+import { CitationDisplay, hasCitations } from "./citation";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
@@ -51,7 +52,17 @@ const PurePreviewMessage = ({
     (part) => part.type === "file"
   );
 
-  useDataStream();
+  const { dataStream } = useDataStream();
+
+  // Get fileDataParts from dataStream for citation verification
+  const fileDataParts = dataStream
+    .filter(
+      (part): part is {
+        type: "data-deepcitation-fileparts";
+        data: Array<{ fileId: string; deepTextPromptPortion: string; filename?: string }>;
+      } => part.type === "data-deepcitation-fileparts"
+    )
+    .flatMap((part) => part.data);
 
   return (
     <div
@@ -121,6 +132,10 @@ const PurePreviewMessage = ({
 
             if (type === "text") {
               if (mode === "view") {
+                const textContent = sanitizeText(part.text);
+                const showCitations =
+                  message.role === "assistant" && hasCitations(textContent);
+
                 return (
                   <div key={key}>
                     <MessageContent
@@ -137,7 +152,18 @@ const PurePreviewMessage = ({
                           : undefined
                       }
                     >
-                      <Response>{sanitizeText(part.text)}</Response>
+                      {showCitations ? (
+                        <div className="prose dark:prose-invert">
+                          <CitationDisplay
+                            content={textContent}
+                            fileDataParts={
+                              fileDataParts.length > 0 ? fileDataParts : undefined
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <Response>{textContent}</Response>
+                      )}
                     </MessageContent>
                   </div>
                 );
