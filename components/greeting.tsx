@@ -1,7 +1,80 @@
-import { motion } from "framer-motion";
-import { FileTextIcon, UploadIcon } from "lucide-react";
+"use client";
 
-export const Greeting = () => {
+import { motion } from "framer-motion";
+import { FileTextIcon, ImageIcon, Loader2Icon, UploadIcon } from "lucide-react";
+import type { Dispatch, SetStateAction } from "react";
+import { useState } from "react";
+import type { Attachment } from "@/lib/types";
+
+interface GreetingProps {
+  setAttachments?: Dispatch<SetStateAction<Attachment[]>>;
+}
+
+const SAMPLE_FILES = [
+  {
+    name: "PPT1.pdf",
+    url: "https://raw.githubusercontent.com/DeepCitation/deepcitation-js/main/examples/assets/PPT1.pdf",
+    contentType: "application/pdf",
+    icon: FileTextIcon,
+    description: "Sample presentation PDF",
+  },
+  {
+    name: "john-doe-50-m-chart.jpg",
+    url: "https://raw.githubusercontent.com/DeepCitation/deepcitation-js/main/examples/assets/john-doe-50-m-chart.jpg",
+    contentType: "image/jpeg",
+    icon: ImageIcon,
+    description: "Sample medical chart",
+  },
+];
+
+export const Greeting = ({ setAttachments }: GreetingProps) => {
+  const [loadingFile, setLoadingFile] = useState<string | null>(null);
+
+  const handleSampleFileClick = async (file: (typeof SAMPLE_FILES)[number]) => {
+    if (!setAttachments || loadingFile) return;
+
+    setLoadingFile(file.name);
+
+    try {
+      // Fetch the file from GitHub
+      const response = await fetch(file.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${file.name}`);
+      }
+
+      const blob = await response.blob();
+
+      // Upload to our API
+      const formData = new FormData();
+      formData.append("file", new File([blob], file.name, { type: file.contentType }));
+
+      const uploadResponse = await fetch("/api/files/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      const { url, contentType } = await uploadResponse.json();
+
+      // Add to attachments
+      setAttachments((prev) => [
+        ...prev,
+        {
+          name: file.name,
+          contentType: contentType,
+          url: url,
+        },
+      ]);
+    } catch (error) {
+      console.error("Error loading sample file:", error);
+    } finally {
+      setLoadingFile(null);
+    }
+  };
+
   return (
     <div
       className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
@@ -51,6 +124,37 @@ export const Greeting = () => {
             <span>Click citations to see exact source locations</span>
           </div>
         </div>
+
+        {setAttachments && (
+          <div className="mt-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+            <div className="mb-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              Or try a sample file:
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SAMPLE_FILES.map((file) => {
+                const Icon = file.icon;
+                const isLoading = loadingFile === file.name;
+
+                return (
+                  <button
+                    key={file.name}
+                    onClick={() => handleSampleFileClick(file)}
+                    disabled={!!loadingFile}
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                    type="button"
+                  >
+                    {isLoading ? (
+                      <Loader2Icon className="size-4 animate-spin" />
+                    ) : (
+                      <Icon className="size-4" />
+                    )}
+                    <span>{file.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );

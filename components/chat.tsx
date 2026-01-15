@@ -215,6 +215,7 @@ export function Chat({
           messages={messages}
           regenerate={regenerate}
           selectedModelId={initialChatModel}
+          setAttachments={setAttachments}
           setMessages={setMessages}
           status={status}
           votes={votes}
