@@ -1,4 +1,4 @@
-import { wrapCitationPrompt } from "@deepcitation/deepcitation-js";
+import { CITATION_MARKDOWN_SYNTAX_PROMPT } from "@deepcitation/deepcitation-js";
 import { geolocation } from "@vercel/functions";
 import {
   convertToModelMessages,
@@ -195,14 +195,16 @@ export async function POST(request: Request) {
           const userPrompt =
             userTextPart && "text" in userTextPart ? userTextPart.text : "";
 
-          // Wrap prompts with citation instructions
-          const { enhancedSystemPrompt, enhancedUserPrompt } = wrapCitationPrompt(
-            {
-              systemPrompt: finalSystemPrompt,
-              userPrompt,
-              deepTextPromptPortion: deepCitation.deepTextPromptPortion,
-            }
-          );
+          // Create enhanced system prompt with citation instructions wrapped in important tags
+          const enhancedSystemPrompt = `${finalSystemPrompt.trim()}
+
+<important_citation_syntax>
+${CITATION_MARKDOWN_SYNTAX_PROMPT.trim()}
+</important_citation_syntax>`;
+
+          // Create enhanced user prompt with file content prepended
+          const fileContent = deepCitation.deepTextPromptPortion.join("\n\n");
+          const enhancedUserPrompt = `${fileContent}\n\n${userPrompt}`;
 
           finalSystemPrompt = enhancedSystemPrompt;
 
