@@ -84,6 +84,16 @@ export async function POST(request: Request) {
       deepCitation,
     } = requestBody;
 
+    // EARLY DEBUG: Log deepCitation immediately after parsing
+    console.log("📋 EARLY DEBUG - deepCitation parsed from request:", {
+      exists: !!deepCitation,
+      enabled: deepCitation?.enabled,
+      hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
+      deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
+      hasFileDataParts: !!deepCitation?.fileDataParts,
+      fileDataPartsLength: deepCitation?.fileDataParts?.length,
+    });
+
     const session = await auth();
 
     if (!session?.user) {
@@ -230,6 +240,13 @@ export async function POST(request: Request) {
             enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
           });
 
+          // DEBUG: Check if system prompt was actually enhanced
+          const systemPromptChanged = enhancedSystemPrompt !== finalSystemPrompt;
+          const systemPromptLengthDiff = enhancedSystemPrompt.length - finalSystemPrompt.length;
+          console.log("📋 CRITICAL DEBUG - system prompt changed:", systemPromptChanged);
+          console.log("📋 CRITICAL DEBUG - system prompt length diff:", systemPromptLengthDiff);
+          console.log("📋 CRITICAL DEBUG - enhanced system prompt ends with:", enhancedSystemPrompt.slice(-500));
+
           // Debug: Log the LAST part of system prompt (citation instructions are appended)
           console.log("📋 SYSTEM PROMPT CITATION INSTRUCTIONS (last 2000 chars):\n", enhancedSystemPrompt.slice(-2000));
 
@@ -244,6 +261,11 @@ export async function POST(request: Request) {
           finalSystemPrompt = enhancedSystemPrompt;
 
           // Update the last user message with enhanced prompt
+          // IMPORTANT: When DeepCitation is enabled, we need to REMOVE file parts from the message
+          // because the file content is already embedded in the enhanced user prompt text.
+          // If we keep file parts, the model sees the raw file content (without citation formatting)
+          // AND the formatted DeepCitation text, which can cause confusion and the model may use
+          // the raw content instead of the properly formatted content with <attachment> tags.
           const messagesArray = await convertToModelMessages(uiMessages);
           finalMessages = messagesArray.map((msg, idx) => {
             if (idx === messagesArray.length - 1 && msg.role === "user") {
@@ -254,16 +276,15 @@ export async function POST(request: Request) {
                   content: enhancedUserPrompt,
                 };
               }
-              // For array content (multimodal), replace text parts with enhanced prompt
+              // For array content (multimodal), replace with ONLY the enhanced text prompt
+              // Remove file/image parts since their content is in the enhanced text
               if (Array.isArray(msg.content)) {
+                console.log("📋 FIX APPLIED: Replacing multimodal content with text-only enhanced prompt");
+                console.log("📋 FIX: Original parts count:", msg.content.length);
+                console.log("📋 FIX: Parts being removed:", msg.content.filter((p: any) => p.type !== "text").map((p: any) => p.type));
                 return {
                   ...msg,
-                  content: msg.content.map((part) => {
-                    if (part.type === "text") {
-                      return { ...part, text: enhancedUserPrompt };
-                    }
-                    return part;
-                  }),
+                  content: enhancedUserPrompt, // Use string content, not array
                 };
               }
             }
@@ -271,6 +292,22 @@ export async function POST(request: Request) {
           });
 
           console.log("📋 Final messages last user content type:", typeof finalMessages[finalMessages.length - 1]?.content, Array.isArray(finalMessages[finalMessages.length - 1]?.content) ? "array" : "not array");
+
+          // DEBUG: Verify fix was applied - content should now be a string, not array
+          const lastMsg = finalMessages[finalMessages.length - 1];
+          if (typeof lastMsg?.content === "string") {
+            console.log("📋 FIX VERIFIED: Message content is now string (file parts removed)");
+            console.log("📋 FIX VERIFIED: Content starts with:", lastMsg.content.slice(0, 100));
+            console.log("📋 FIX VERIFIED: Content contains <attachment tags:", lastMsg.content.includes("<attachment"));
+          } else if (Array.isArray(lastMsg?.content)) {
+            console.log("📋 WARNING: Final message still has", lastMsg.content.length, "content parts (fix may not have applied):");
+            lastMsg.content.forEach((part: any, i: number) => {
+              console.log(`📋   Part ${i}: type=${part.type}, hasText=${!!part.text}, hasImage=${!!part.image}, hasFile=${!!part.file}`);
+              if (part.type === "text") {
+                console.log(`📋   Part ${i} text preview:`, part.text?.slice(0, 200));
+              }
+            });
+          }
 
           // Send fileDataParts back to client for verification later
           if (deepCitation.fileDataParts) {
@@ -285,6 +322,13 @@ export async function POST(request: Request) {
         console.log("📋 SENDING TO LLM - system prompt length:", finalSystemPrompt.length);
         console.log("📋 SENDING TO LLM - system prompt has citation instructions:", finalSystemPrompt.includes("Citation syntax to use within Markdown"));
         console.log("📋 SENDING TO LLM - system prompt LAST 1500 chars:\n", finalSystemPrompt.slice(-1500));
+
+        // Debug: Log the full streamText call parameters
+        console.log("📋 STREAMTEXT CALL - model:", selectedChatModel);
+        console.log("📋 STREAMTEXT CALL - system prompt first 500 chars:", finalSystemPrompt.slice(0, 500));
+        console.log("📋 STREAMTEXT CALL - messages count:", finalMessages.length);
+        console.log("📋 STREAMTEXT CALL - last message role:", finalMessages[finalMessages.length - 1]?.role);
+        console.log("📋 STREAMTEXT CALL - last message content preview:", JSON.stringify(finalMessages[finalMessages.length - 1]?.content)?.slice(0, 1000));
 
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
