@@ -427,6 +427,8 @@ function PureMultimodalInput({
             chatId={chatId}
             selectedVisibilityType={selectedVisibilityType}
             sendMessage={sendMessage}
+            setAttachments={setAttachments}
+            setDeepCitation={setDeepCitation}
           />
         )}
 
@@ -510,27 +512,18 @@ function PureMultimodalInput({
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
-            <Button
+            <div
               className={cn(
-                "h-8 gap-1.5 rounded-lg px-2 text-xs transition-all duration-200",
-                deepCitation.enabled
-                  ? "bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 dark:bg-emerald-500/20 dark:text-emerald-400"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-all duration-200",
+                attachments.length > 0
+                  ? "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
+                  : "text-muted-foreground/50"
               )}
-              onClick={() => {
-                setDeepCitation((prev) => ({
-                  ...prev,
-                  enabled: !prev.enabled,
-                  deepTextPromptPortion: undefined,
-                  fileDataParts: undefined,
-                }));
-              }}
-              type="button"
-              variant="ghost"
+              title={attachments.length > 0 ? "DeepCitation enabled" : "Upload a file to enable DeepCitation"}
             >
               <FileTextIcon className="size-3.5" />
-              <span className="hidden sm:inline">Citations {deepCitation.enabled ? "On" : "Off"}</span>
-            </Button>
+              <span className="hidden sm:inline">Deep Citation</span>
+            </div>
           </PromptInputTools>
 
           {status === "submitted" ? (
