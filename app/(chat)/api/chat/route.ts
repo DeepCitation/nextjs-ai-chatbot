@@ -281,6 +281,11 @@ export async function POST(request: Request) {
           }
         }
 
+        // Debug: Log what we're actually sending to the LLM
+        console.log("📋 SENDING TO LLM - system prompt length:", finalSystemPrompt.length);
+        console.log("📋 SENDING TO LLM - system prompt has citation instructions:", finalSystemPrompt.includes("Citation syntax to use within Markdown"));
+        console.log("📋 SENDING TO LLM - system prompt LAST 1500 chars:\n", finalSystemPrompt.slice(-1500));
+
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
           system: finalSystemPrompt,
