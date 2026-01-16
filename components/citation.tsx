@@ -96,8 +96,8 @@ function ProcessedContent({
   citations,
   verifications,
 }: ProcessedContentProps) {
-  // Match <cite ... /> tags
-  const citationRegex = /<cite\s+[^>]*\/>/g;
+  // Match both <cite ... /> self-closing tags AND <cite ...>...</cite> tags
+  const citationRegex = /<cite\s+[^>]*(?:\/>|>(?:.*?)<\/cite>)/g;
   const parts: Array<{ type: "text" | "citation"; content: string }> = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -114,7 +114,7 @@ function ProcessedContent({
 
     parts.push({
       type: "citation",
-      content: match[0], // The full <cite ... /> tag
+      content: match[0], // The full cite tag
     });
 
     lastIndex = match.index + match[0].length;
@@ -173,6 +173,7 @@ function ProcessedContent({
 
 // Helper to check if content has citations
 export function hasCitations(content: string): boolean {
-  const citationRegex = /<cite\s+[^>]*\/>/;
+  // Match both <cite ... /> self-closing tags AND <cite ...>...</cite> tags
+  const citationRegex = /<cite\s+[^>]*(?:\/>|>)/;
   return citationRegex.test(content);
 }
