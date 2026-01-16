@@ -187,6 +187,7 @@ export async function POST(request: Request) {
           enabled: deepCitation?.enabled,
           hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
           deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
+          deepTextPromptPortionFirstItemLength: deepCitation?.deepTextPromptPortion?.[0]?.length,
           hasFileDataParts: !!deepCitation?.fileDataParts,
           fileDataPartsLength: deepCitation?.fileDataParts?.length,
         });
@@ -196,6 +197,8 @@ export async function POST(request: Request) {
           deepCitation?.deepTextPromptPortion &&
           deepCitation.deepTextPromptPortion.length > 0
         ) {
+          console.log("📋 DeepCitation condition passed, entering block...");
+
           // Get the last user message text for enhancement
           const lastUserMessage = uiMessages.findLast((m) => m.role === "user");
           const userTextPart = lastUserMessage?.parts?.find(
@@ -203,6 +206,13 @@ export async function POST(request: Request) {
           );
           const userPrompt =
             userTextPart && "text" in userTextPart ? userTextPart.text : "";
+
+          console.log("📋 About to call wrapCitationPrompt with:", {
+            systemPromptLength: finalSystemPrompt.length,
+            userPromptLength: userPrompt.length,
+            deepTextPromptPortionCount: deepCitation.deepTextPromptPortion.length,
+            deepTextPromptPortionFirstChars: deepCitation.deepTextPromptPortion[0]?.slice(0, 100),
+          });
 
           // Wrap prompts with citation instructions
           const { enhancedSystemPrompt, enhancedUserPrompt } = wrapCitationPrompt(
@@ -213,7 +223,7 @@ export async function POST(request: Request) {
             }
           );
 
-          console.log("📋 wrapCitationPrompt called:", {
+          console.log("📋 wrapCitationPrompt returned:", {
             originalUserPromptLength: userPrompt.length,
             enhancedUserPromptLength: enhancedUserPrompt.length,
             enhancedSystemPromptLength: enhancedSystemPrompt.length,
