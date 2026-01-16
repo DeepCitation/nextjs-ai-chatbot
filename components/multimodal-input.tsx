@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon, FileTextIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon, FileTextIcon } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -458,6 +458,8 @@ function PureMultimodalInput({
             {attachments.map((attachment) => (
               <PreviewAttachment
                 attachment={attachment}
+                isPrepared={deepCitation.enabled && !!deepCitation.deepTextPromptPortion}
+                isPreparing={deepCitation.enabled && deepCitation.isPreparing}
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
@@ -483,52 +485,6 @@ function PureMultimodalInput({
             ))}
           </div>
         )}
-        <div className="flex items-center gap-2 px-2">
-          <button
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all duration-200",
-              attachments.length === 0
-                ? "cursor-not-allowed bg-muted/50 text-muted-foreground/50"
-                : deepCitation.enabled
-                  ? "bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-            disabled={attachments.length === 0 || deepCitation.isPreparing}
-            onClick={() => {
-              setDeepCitation((prev) => ({
-                ...prev,
-                enabled: !prev.enabled,
-                // Reset prepared data when toggling
-                deepTextPromptPortion: undefined,
-                fileDataParts: undefined,
-              }));
-            }}
-            title={
-              attachments.length === 0
-                ? "Upload a PDF to enable citations"
-                : undefined
-            }
-            type="button"
-          >
-            {deepCitation.isPreparing ? (
-              <Loader2Icon className="size-3 animate-spin" />
-            ) : (
-              <FileTextIcon className="size-3" />
-            )}
-            <span>
-              {deepCitation.isPreparing
-                ? "Preparing..."
-                : attachments.length === 0
-                  ? "Citations"
-                  : deepCitation.enabled
-                    ? "Citations On"
-                    : "Enable Citations"}
-            </span>
-            {deepCitation.enabled &&
-              !deepCitation.isPreparing &&
-              attachments.length > 0 && <CheckIcon className="size-3" />}
-          </button>
-        </div>
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
@@ -554,6 +510,27 @@ function PureMultimodalInput({
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
+            <Button
+              className={cn(
+                "h-8 gap-1.5 rounded-lg px-2 text-xs transition-all duration-200",
+                deepCitation.enabled
+                  ? "bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 dark:bg-emerald-500/20 dark:text-emerald-400"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              )}
+              onClick={() => {
+                setDeepCitation((prev) => ({
+                  ...prev,
+                  enabled: !prev.enabled,
+                  deepTextPromptPortion: undefined,
+                  fileDataParts: undefined,
+                }));
+              }}
+              type="button"
+              variant="ghost"
+            >
+              <FileTextIcon className="size-3.5" />
+              <span className="hidden sm:inline">Citations {deepCitation.enabled ? "On" : "Off"}</span>
+            </Button>
           </PromptInputTools>
 
           {status === "submitted" ? (

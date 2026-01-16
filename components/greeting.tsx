@@ -108,7 +108,7 @@ export const Greeting = ({ setAttachments }: GreetingProps) => {
       >
         <div className="flex items-center gap-3 text-zinc-600 dark:text-zinc-400">
           <UploadIcon className="size-5" />
-          <span className="font-medium">Upload a PDF to get started</span>
+          <span className="font-medium">Upload a PDF or image to get started</span>
         </div>
         <div className="flex flex-col gap-2 text-sm text-zinc-500">
           <div className="flex items-center gap-2">
