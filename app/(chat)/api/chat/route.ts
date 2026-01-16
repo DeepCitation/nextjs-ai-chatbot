@@ -182,6 +182,15 @@ export async function POST(request: Request) {
         let finalSystemPrompt = systemPrompt({ selectedChatModel, requestHints });
         let finalMessages = await convertToModelMessages(uiMessages);
 
+        // Debug: log DeepCitation data
+        console.log("📋 DeepCitation data received:", {
+          enabled: deepCitation?.enabled,
+          hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
+          deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
+          hasFileDataParts: !!deepCitation?.fileDataParts,
+          fileDataPartsLength: deepCitation?.fileDataParts?.length,
+        });
+
         if (
           deepCitation?.enabled &&
           deepCitation?.deepTextPromptPortion &&
@@ -203,6 +212,13 @@ export async function POST(request: Request) {
               deepTextPromptPortion: deepCitation.deepTextPromptPortion,
             }
           );
+
+          console.log("📋 wrapCitationPrompt called:", {
+            originalUserPromptLength: userPrompt.length,
+            enhancedUserPromptLength: enhancedUserPrompt.length,
+            enhancedSystemPromptLength: enhancedSystemPrompt.length,
+            enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
+          });
 
           finalSystemPrompt = enhancedSystemPrompt;
 
