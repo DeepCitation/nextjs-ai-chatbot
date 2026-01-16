@@ -230,9 +230,16 @@ export async function POST(request: Request) {
             enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
           });
 
-          // Debug: Log full prompts for testing
-          console.log("📋 FULL ENHANCED SYSTEM PROMPT:\n", enhancedSystemPrompt);
-          console.log("📋 FULL ENHANCED USER PROMPT:\n", enhancedUserPrompt);
+          // Debug: Log the LAST part of system prompt (citation instructions are appended)
+          console.log("📋 SYSTEM PROMPT CITATION INSTRUCTIONS (last 2000 chars):\n", enhancedSystemPrompt.slice(-2000));
+
+          // Debug: Check if citation instructions are present
+          const hasCitationInstructions = enhancedSystemPrompt.includes("<cite attachment_id=");
+          console.log("📋 System prompt contains citation syntax example:", hasCitationInstructions);
+
+          // Debug: Log user prompt structure
+          console.log("📋 USER PROMPT STRUCTURE - starts with attachment?:", enhancedUserPrompt.startsWith("\n<attachment"));
+          console.log("📋 USER PROMPT - original question at end:", enhancedUserPrompt.slice(-200));
 
           finalSystemPrompt = enhancedSystemPrompt;
 
