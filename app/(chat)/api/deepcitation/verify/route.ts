@@ -9,7 +9,7 @@ const requestSchema = z.object({
   fileDataParts: z
     .array(
       z.object({
-        fileId: z.string(),
+        attachmentId: z.string(),
         deepTextPromptPortion: z.string(),
         filename: z.string().optional(),
       })

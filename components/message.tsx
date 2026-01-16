@@ -59,7 +59,7 @@ const PurePreviewMessage = ({
     .filter(
       (part): part is {
         type: "data-deepcitation-fileparts";
-        data: Array<{ fileId: string; deepTextPromptPortion: string; filename?: string }>;
+        data: Array<{ attachmentId: string; deepTextPromptPortion: string; filename?: string }>;
       } => part.type === "data-deepcitation-fileparts"
     )
     .flatMap((part) => part.data);

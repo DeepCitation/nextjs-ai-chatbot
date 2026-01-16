@@ -43,7 +43,7 @@ export type CustomUIDataTypes = {
   finish: null;
   "chat-title": string;
   "deepcitation-fileparts": Array<{
-    fileId: string;
+    attachmentId: string;
     deepTextPromptPortion: string;
     filename?: string;
   }>;
@@ -65,7 +65,7 @@ export type DeepCitationData = {
   enabled: boolean;
   deepTextPromptPortion?: string[];
   fileDataParts?: Array<{
-    fileId: string;
+    attachmentId: string;
     deepTextPromptPortion: string;
     filename?: string;
   }>;

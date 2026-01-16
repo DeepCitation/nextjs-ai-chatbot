@@ -13,7 +13,7 @@ import { memo, useEffect, useState, type ReactNode } from "react";
 interface CitationDisplayProps {
   content: string;
   fileDataParts?: Array<{
-    fileId: string;
+    attachmentId: string;
     deepTextPromptPortion: string;
     filename?: string;
   }>;
