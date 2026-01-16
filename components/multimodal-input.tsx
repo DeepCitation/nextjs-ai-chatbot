@@ -263,11 +263,6 @@ function PureMultimodalInput({
         }
       : {};
 
-    // DEBUG: Log what we're about to send
-    console.log("📋 SUBMIT DEBUG - deepCitation.enabled:", deepCitation.enabled);
-    console.log("📋 SUBMIT DEBUG - deepCitationBody:", deepCitationBody);
-    console.log("📋 SUBMIT DEBUG - deepCitationBody.deepCitation?.deepTextPromptPortion length:", deepCitationBody.deepCitation?.deepTextPromptPortion?.length);
-
     sendMessage(
       {
         role: "user",

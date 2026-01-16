@@ -60,10 +60,6 @@ export async function POST(request: Request) {
       deepTextPromptPortionLengths: deepTextPromptPortion?.map((d) => d?.length),
     });
 
-    // ADDITIONAL DEBUG: Show sample of actual content being returned
-    console.log("📋 DeepCitation prepareFiles - sample deepTextPromptPortion[0] (first 500 chars):", deepTextPromptPortion?.[0]?.slice(0, 500));
-    console.log("📋 DeepCitation prepareFiles - full response structure:", JSON.stringify(result, null, 2).slice(0, 2000));
-
     return NextResponse.json({
       fileDataParts,
       deepTextPromptPortion,

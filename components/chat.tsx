@@ -110,11 +110,6 @@ export function Chat({
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
-        // DEBUG: Log the incoming request.body to see if deepCitation is present
-        console.log("📋 TRANSPORT DEBUG - request.body:", request.body);
-        console.log("📋 TRANSPORT DEBUG - request.body has deepCitation:", !!request.body?.deepCitation);
-        console.log("📋 TRANSPORT DEBUG - full request.body:", JSON.stringify(request.body)?.slice(0, 500));
-
         const lastMessage = request.messages.at(-1);
 
         // Check if this is a tool approval continuation:

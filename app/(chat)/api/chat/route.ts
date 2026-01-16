@@ -84,16 +84,6 @@ export async function POST(request: Request) {
       deepCitation,
     } = requestBody;
 
-    // EARLY DEBUG: Log deepCitation immediately after parsing
-    console.log("📋 EARLY DEBUG - deepCitation parsed from request:", {
-      exists: !!deepCitation,
-      enabled: deepCitation?.enabled,
-      hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
-      deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
-      hasFileDataParts: !!deepCitation?.fileDataParts,
-      fileDataPartsLength: deepCitation?.fileDataParts?.length,
-    });
-
     const session = await auth();
 
     if (!session?.user) {
@@ -192,23 +182,11 @@ export async function POST(request: Request) {
         let finalSystemPrompt = systemPrompt({ selectedChatModel, requestHints });
         let finalMessages = await convertToModelMessages(uiMessages);
 
-        // Debug: log DeepCitation data
-        console.log("📋 DeepCitation data received:", {
-          enabled: deepCitation?.enabled,
-          hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
-          deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
-          deepTextPromptPortionFirstItemLength: deepCitation?.deepTextPromptPortion?.[0]?.length,
-          hasFileDataParts: !!deepCitation?.fileDataParts,
-          fileDataPartsLength: deepCitation?.fileDataParts?.length,
-        });
-
         if (
           deepCitation?.enabled &&
           deepCitation?.deepTextPromptPortion &&
           deepCitation.deepTextPromptPortion.length > 0
         ) {
-          console.log("📋 DeepCitation condition passed, entering block...");
-
           // Get the last user message text for enhancement
           const lastUserMessage = uiMessages.findLast((m) => m.role === "user");
           const userTextPart = lastUserMessage?.parts?.find(
@@ -216,13 +194,6 @@ export async function POST(request: Request) {
           );
           const userPrompt =
             userTextPart && "text" in userTextPart ? userTextPart.text : "";
-
-          console.log("📋 About to call wrapCitationPrompt with:", {
-            systemPromptLength: finalSystemPrompt.length,
-            userPromptLength: userPrompt.length,
-            deepTextPromptPortionCount: deepCitation.deepTextPromptPortion.length,
-            deepTextPromptPortionFirstChars: deepCitation.deepTextPromptPortion[0]?.slice(0, 100),
-          });
 
           // Wrap prompts with citation instructions
           const { enhancedSystemPrompt, enhancedUserPrompt } = wrapCitationPrompt(
@@ -232,31 +203,6 @@ export async function POST(request: Request) {
               deepTextPromptPortion: deepCitation.deepTextPromptPortion,
             }
           );
-
-          console.log("📋 wrapCitationPrompt returned:", {
-            originalUserPromptLength: userPrompt.length,
-            enhancedUserPromptLength: enhancedUserPrompt.length,
-            enhancedSystemPromptLength: enhancedSystemPrompt.length,
-            enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
-          });
-
-          // DEBUG: Check if system prompt was actually enhanced
-          const systemPromptChanged = enhancedSystemPrompt !== finalSystemPrompt;
-          const systemPromptLengthDiff = enhancedSystemPrompt.length - finalSystemPrompt.length;
-          console.log("📋 CRITICAL DEBUG - system prompt changed:", systemPromptChanged);
-          console.log("📋 CRITICAL DEBUG - system prompt length diff:", systemPromptLengthDiff);
-          console.log("📋 CRITICAL DEBUG - enhanced system prompt ends with:", enhancedSystemPrompt.slice(-500));
-
-          // Debug: Log the LAST part of system prompt (citation instructions are appended)
-          console.log("📋 SYSTEM PROMPT CITATION INSTRUCTIONS (last 2000 chars):\n", enhancedSystemPrompt.slice(-2000));
-
-          // Debug: Check if citation instructions are present
-          const hasCitationInstructions = enhancedSystemPrompt.includes("<cite attachment_id=");
-          console.log("📋 System prompt contains citation syntax example:", hasCitationInstructions);
-
-          // Debug: Log user prompt structure
-          console.log("📋 USER PROMPT STRUCTURE - starts with attachment?:", enhancedUserPrompt.startsWith("\n<attachment"));
-          console.log("📋 USER PROMPT - original question at end:", enhancedUserPrompt.slice(-200));
 
           finalSystemPrompt = enhancedSystemPrompt;
 
@@ -279,9 +225,6 @@ export async function POST(request: Request) {
               // For array content (multimodal), replace with ONLY the enhanced text prompt
               // Remove file/image parts since their content is in the enhanced text
               if (Array.isArray(msg.content)) {
-                console.log("📋 FIX APPLIED: Replacing multimodal content with text-only enhanced prompt");
-                console.log("📋 FIX: Original parts count:", msg.content.length);
-                console.log("📋 FIX: Parts being removed:", msg.content.filter((p: any) => p.type !== "text").map((p: any) => p.type));
                 return {
                   ...msg,
                   content: enhancedUserPrompt, // Use string content, not array
@@ -290,24 +233,6 @@ export async function POST(request: Request) {
             }
             return msg;
           });
-
-          console.log("📋 Final messages last user content type:", typeof finalMessages[finalMessages.length - 1]?.content, Array.isArray(finalMessages[finalMessages.length - 1]?.content) ? "array" : "not array");
-
-          // DEBUG: Verify fix was applied - content should now be a string, not array
-          const lastMsg = finalMessages[finalMessages.length - 1];
-          if (typeof lastMsg?.content === "string") {
-            console.log("📋 FIX VERIFIED: Message content is now string (file parts removed)");
-            console.log("📋 FIX VERIFIED: Content starts with:", lastMsg.content.slice(0, 100));
-            console.log("📋 FIX VERIFIED: Content contains <attachment tags:", lastMsg.content.includes("<attachment"));
-          } else if (Array.isArray(lastMsg?.content)) {
-            console.log("📋 WARNING: Final message still has", lastMsg.content.length, "content parts (fix may not have applied):");
-            lastMsg.content.forEach((part: any, i: number) => {
-              console.log(`📋   Part ${i}: type=${part.type}, hasText=${!!part.text}, hasImage=${!!part.image}, hasFile=${!!part.file}`);
-              if (part.type === "text") {
-                console.log(`📋   Part ${i} text preview:`, part.text?.slice(0, 200));
-              }
-            });
-          }
 
           // Send fileDataParts back to client for verification later
           if (deepCitation.fileDataParts) {
@@ -318,17 +243,11 @@ export async function POST(request: Request) {
           }
         }
 
-        // Debug: Log what we're actually sending to the LLM
-        console.log("📋 SENDING TO LLM - system prompt length:", finalSystemPrompt.length);
-        console.log("📋 SENDING TO LLM - system prompt has citation instructions:", finalSystemPrompt.includes("Citation syntax to use within Markdown"));
-        console.log("📋 SENDING TO LLM - system prompt LAST 1500 chars:\n", finalSystemPrompt.slice(-1500));
-
-        // Debug: Log the full streamText call parameters
-        console.log("📋 STREAMTEXT CALL - model:", selectedChatModel);
-        console.log("📋 STREAMTEXT CALL - system prompt first 500 chars:", finalSystemPrompt.slice(0, 500));
-        console.log("📋 STREAMTEXT CALL - messages count:", finalMessages.length);
-        console.log("📋 STREAMTEXT CALL - last message role:", finalMessages[finalMessages.length - 1]?.role);
-        console.log("📋 STREAMTEXT CALL - last message content preview:", JSON.stringify(finalMessages[finalMessages.length - 1]?.content)?.slice(0, 1000));
+        // DEBUG: Log the FULL system prompt being sent to the LLM (no truncation)
+        console.log("📋 FULL SYSTEM PROMPT BEING SENT TO LLM:");
+        console.log("========== START SYSTEM PROMPT ==========");
+        console.log(finalSystemPrompt);
+        console.log("========== END SYSTEM PROMPT ==========");
 
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
