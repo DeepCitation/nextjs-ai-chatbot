@@ -426,9 +426,9 @@ function PureMultimodalInput({
           <SuggestedActions
             chatId={chatId}
             selectedVisibilityType={selectedVisibilityType}
-            sendMessage={sendMessage}
             setAttachments={setAttachments}
             setDeepCitation={setDeepCitation}
+            setInput={setInput}
           />
         )}
 
