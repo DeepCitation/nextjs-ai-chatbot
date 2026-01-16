@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { FileTextIcon, ImageIcon, Loader2Icon, UploadIcon } from "lucide-react";
+import { DownloadIcon, FileTextIcon, ImageIcon, Loader2Icon, UploadIcon } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
 import type { Attachment } from "@/lib/types";
 
 interface GreetingProps {
   setAttachments?: Dispatch<SetStateAction<Attachment[]>>;
+  setInput?: Dispatch<SetStateAction<string>>;
 }
 
 const SAMPLE_FILES = [
@@ -16,18 +17,20 @@ const SAMPLE_FILES = [
     url: "/samples/PPT1.pdf",
     contentType: "application/pdf",
     icon: FileTextIcon,
-    description: "Sample presentation PDF",
+    description: "Oral DNA Labs report",
+    prefilledQuestion: "What are the key findings in this Oral DNA Labs report for John Doe?",
   },
   {
     name: "john-doe-50-m-chart.jpg",
     url: "/samples/john-doe-50-m-chart.jpg",
     contentType: "image/jpeg",
     icon: ImageIcon,
-    description: "Sample medical chart",
+    description: "Patient chart",
+    prefilledQuestion: "What information can you extract from this patient chart for John Doe?",
   },
 ];
 
-export const Greeting = ({ setAttachments }: GreetingProps) => {
+export const Greeting = ({ setAttachments, setInput }: GreetingProps) => {
   const [loadingFile, setLoadingFile] = useState<string | null>(null);
 
   const handleSampleFileClick = async (file: (typeof SAMPLE_FILES)[number]) => {
@@ -36,7 +39,7 @@ export const Greeting = ({ setAttachments }: GreetingProps) => {
     setLoadingFile(file.name);
 
     try {
-      // Fetch the file from GitHub
+      // Fetch the file locally
       const response = await fetch(file.url);
       if (!response.ok) {
         throw new Error(`Failed to fetch ${file.name}`);
@@ -68,11 +71,25 @@ export const Greeting = ({ setAttachments }: GreetingProps) => {
           url: url,
         },
       ]);
+
+      // Pre-fill the input with the question
+      if (setInput && file.prefilledQuestion) {
+        setInput(file.prefilledQuestion);
+      }
     } catch (error) {
       console.error("Error loading sample file:", error);
     } finally {
       setLoadingFile(null);
     }
+  };
+
+  const handleDownload = (file: (typeof SAMPLE_FILES)[number]) => {
+    const link = document.createElement("a");
+    link.href = file.url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -130,26 +147,41 @@ export const Greeting = ({ setAttachments }: GreetingProps) => {
             <div className="mb-3 text-sm font-medium text-zinc-600 dark:text-zinc-400">
               Or try a sample file:
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-3">
               {SAMPLE_FILES.map((file) => {
                 const Icon = file.icon;
                 const isLoading = loadingFile === file.name;
 
                 return (
-                  <button
+                  <div
                     key={file.name}
-                    onClick={() => handleSampleFileClick(file)}
-                    disabled={!!loadingFile}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                    type="button"
+                    className="flex items-center gap-2"
                   >
-                    {isLoading ? (
-                      <Loader2Icon className="size-4 animate-spin" />
-                    ) : (
-                      <Icon className="size-4" />
-                    )}
-                    <span>{file.name}</span>
-                  </button>
+                    <button
+                      onClick={() => handleSampleFileClick(file)}
+                      disabled={!!loadingFile}
+                      className="flex flex-1 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                      type="button"
+                    >
+                      {isLoading ? (
+                        <Loader2Icon className="size-4 animate-spin" />
+                      ) : (
+                        <Icon className="size-4 shrink-0" />
+                      )}
+                      <span className="truncate">{file.name}</span>
+                      <span className="ml-auto hidden text-xs text-zinc-400 sm:inline">
+                        {file.description}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => handleDownload(file)}
+                      className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+                      type="button"
+                      title={`Download ${file.name}`}
+                    >
+                      <DownloadIcon className="size-4" />
+                    </button>
+                  </div>
                 );
               })}
             </div>

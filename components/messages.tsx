@@ -22,6 +22,7 @@ type MessagesProps = {
   isArtifactVisible: boolean;
   selectedModelId: string;
   setAttachments?: Dispatch<SetStateAction<Attachment[]>>;
+  setInput?: Dispatch<SetStateAction<string>>;
 };
 
 function PureMessages({
@@ -35,6 +36,7 @@ function PureMessages({
   isReadonly,
   selectedModelId: _selectedModelId,
   setAttachments,
+  setInput,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -55,7 +57,7 @@ function PureMessages({
         ref={messagesContainerRef}
       >
         <div className="mx-auto flex min-w-0 max-w-4xl flex-col gap-4 px-2 py-4 md:gap-6 md:px-4">
-          {messages.length === 0 && <Greeting setAttachments={setAttachments} />}
+          {messages.length === 0 && <Greeting setAttachments={setAttachments} setInput={setInput} />}
 
           {messages.map((message, index) => (
             <PreviewMessage
