@@ -1,9 +1,10 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { DeepCitationIcon } from "@deepcitation/deepcitation-js";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon, FileTextIcon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -521,7 +522,7 @@ function PureMultimodalInput({
               )}
               title={attachments.length > 0 ? "DeepCitation enabled" : "Upload a file to enable DeepCitation"}
             >
-              <FileTextIcon className="size-3.5" />
+              <DeepCitationIcon className="size-3.5" />
               <span className="hidden sm:inline">Deep Citation</span>
             </div>
           </PromptInputTools>
