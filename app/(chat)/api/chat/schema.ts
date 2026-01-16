@@ -7,7 +7,7 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum(["image/jpeg", "image/png"]),
+  mediaType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });
@@ -34,6 +34,22 @@ export const postRequestBodySchema = z.object({
   messages: z.array(messageSchema).optional(),
   selectedChatModel: z.string(),
   selectedVisibilityType: z.enum(["public", "private"]),
+  // DeepCitation data for citation-enabled messages
+  deepCitation: z
+    .object({
+      enabled: z.boolean(),
+      deepTextPromptPortion: z.array(z.string()).optional(),
+      fileDataParts: z
+        .array(
+          z.object({
+            attachmentId: z.string(),
+            deepTextPromptPortion: z.string(),
+            filename: z.string().optional(),
+          })
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

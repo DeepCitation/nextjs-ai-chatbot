@@ -1,3 +1,4 @@
+import { wrapCitationPrompt } from "@deepcitation/deepcitation-js";
 import { geolocation } from "@vercel/functions";
 import {
   convertToModelMessages,
@@ -74,8 +75,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      messages,
+      selectedChatModel,
+      selectedVisibilityType,
+      deepCitation,
+    } = requestBody;
 
     const session = await auth();
 
@@ -171,10 +178,118 @@ export async function POST(request: Request) {
           selectedChatModel.includes("reasoning") ||
           selectedChatModel.includes("thinking");
 
+        // Prepare system and user prompts, potentially enhanced with DeepCitation
+        let finalSystemPrompt = systemPrompt({ selectedChatModel, requestHints });
+        let finalMessages = await convertToModelMessages(uiMessages);
+
+        // Debug: log DeepCitation data
+        console.log("📋 DeepCitation data received:", {
+          enabled: deepCitation?.enabled,
+          hasDeepTextPromptPortion: !!deepCitation?.deepTextPromptPortion,
+          deepTextPromptPortionLength: deepCitation?.deepTextPromptPortion?.length,
+          deepTextPromptPortionFirstItemLength: deepCitation?.deepTextPromptPortion?.[0]?.length,
+          hasFileDataParts: !!deepCitation?.fileDataParts,
+          fileDataPartsLength: deepCitation?.fileDataParts?.length,
+        });
+
+        if (
+          deepCitation?.enabled &&
+          deepCitation?.deepTextPromptPortion &&
+          deepCitation.deepTextPromptPortion.length > 0
+        ) {
+          console.log("📋 DeepCitation condition passed, entering block...");
+
+          // Get the last user message text for enhancement
+          const lastUserMessage = uiMessages.findLast((m) => m.role === "user");
+          const userTextPart = lastUserMessage?.parts?.find(
+            (p) => p.type === "text"
+          );
+          const userPrompt =
+            userTextPart && "text" in userTextPart ? userTextPart.text : "";
+
+          console.log("📋 About to call wrapCitationPrompt with:", {
+            systemPromptLength: finalSystemPrompt.length,
+            userPromptLength: userPrompt.length,
+            deepTextPromptPortionCount: deepCitation.deepTextPromptPortion.length,
+            deepTextPromptPortionFirstChars: deepCitation.deepTextPromptPortion[0]?.slice(0, 100),
+          });
+
+          // Wrap prompts with citation instructions
+          const { enhancedSystemPrompt, enhancedUserPrompt } = wrapCitationPrompt(
+            {
+              systemPrompt: finalSystemPrompt,
+              userPrompt,
+              deepTextPromptPortion: deepCitation.deepTextPromptPortion,
+            }
+          );
+
+          console.log("📋 wrapCitationPrompt returned:", {
+            originalUserPromptLength: userPrompt.length,
+            enhancedUserPromptLength: enhancedUserPrompt.length,
+            enhancedSystemPromptLength: enhancedSystemPrompt.length,
+            enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
+          });
+
+          // Debug: Log the LAST part of system prompt (citation instructions are appended)
+          console.log("📋 SYSTEM PROMPT CITATION INSTRUCTIONS (last 2000 chars):\n", enhancedSystemPrompt.slice(-2000));
+
+          // Debug: Check if citation instructions are present
+          const hasCitationInstructions = enhancedSystemPrompt.includes("<cite attachment_id=");
+          console.log("📋 System prompt contains citation syntax example:", hasCitationInstructions);
+
+          // Debug: Log user prompt structure
+          console.log("📋 USER PROMPT STRUCTURE - starts with attachment?:", enhancedUserPrompt.startsWith("\n<attachment"));
+          console.log("📋 USER PROMPT - original question at end:", enhancedUserPrompt.slice(-200));
+
+          finalSystemPrompt = enhancedSystemPrompt;
+
+          // Update the last user message with enhanced prompt
+          const messagesArray = await convertToModelMessages(uiMessages);
+          finalMessages = messagesArray.map((msg, idx) => {
+            if (idx === messagesArray.length - 1 && msg.role === "user") {
+              // Handle both string content and array content (multimodal)
+              if (typeof msg.content === "string") {
+                return {
+                  ...msg,
+                  content: enhancedUserPrompt,
+                };
+              }
+              // For array content (multimodal), replace text parts with enhanced prompt
+              if (Array.isArray(msg.content)) {
+                return {
+                  ...msg,
+                  content: msg.content.map((part) => {
+                    if (part.type === "text") {
+                      return { ...part, text: enhancedUserPrompt };
+                    }
+                    return part;
+                  }),
+                };
+              }
+            }
+            return msg;
+          });
+
+          console.log("📋 Final messages last user content type:", typeof finalMessages[finalMessages.length - 1]?.content, Array.isArray(finalMessages[finalMessages.length - 1]?.content) ? "array" : "not array");
+
+          // Send fileDataParts back to client for verification later
+          if (deepCitation.fileDataParts) {
+            dataStream.write({
+              type: "data-deepcitation-fileparts",
+              data: deepCitation.fileDataParts,
+            } as any);
+          }
+        }
+
+        // Debug: Log what we're actually sending to the LLM
+        console.log("📋 SENDING TO LLM - system prompt length:", finalSystemPrompt.length);
+        console.log("📋 SENDING TO LLM - system prompt has citation instructions:", finalSystemPrompt.includes("Citation syntax to use within Markdown"));
+        console.log("📋 SENDING TO LLM - system prompt LAST 1500 chars:\n", finalSystemPrompt.slice(-1500));
+
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: await convertToModelMessages(uiMessages),
+          system: finalSystemPrompt,
+          messages: finalMessages,
           stopWhen: stepCountIs(5),
           experimental_activeTools: isReasoningModel
             ? []
@@ -219,6 +334,26 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages: finishedMessages }) => {
+        // Debug: Log finished messages to see LLM response
+        console.log("📋 onFinish called with", finishedMessages.length, "messages");
+        for (const msg of finishedMessages) {
+          console.log("📋 Finished message role:", msg.role);
+          if (msg.parts) {
+            for (const part of msg.parts) {
+              if (part.type === "text") {
+                console.log("📋 LLM Response text:", (part as any).text?.slice(0, 1000));
+                // Check for citations
+                const citationMatch = (part as any).text?.match(/<cite\s+[^>]*(?:\/>|>)/g);
+                if (citationMatch) {
+                  console.log("📋 Found", citationMatch.length, "citation(s) in response!");
+                } else {
+                  console.log("📋 No citations found in response");
+                }
+              }
+            }
+          }
+        }
+
         if (isToolApprovalFlow) {
           // For tool approval, update existing messages (tool state changed) and save new ones
           for (const finishedMsg of finishedMessages) {
