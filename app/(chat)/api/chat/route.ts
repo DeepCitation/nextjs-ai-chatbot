@@ -230,6 +230,10 @@ export async function POST(request: Request) {
             enhancedUserPromptPreview: enhancedUserPrompt.slice(0, 500),
           });
 
+          // Debug: Log full prompts for testing
+          console.log("📋 FULL ENHANCED SYSTEM PROMPT:\n", enhancedSystemPrompt);
+          console.log("📋 FULL ENHANCED USER PROMPT:\n", enhancedUserPrompt);
+
           finalSystemPrompt = enhancedSystemPrompt;
 
           // Update the last user message with enhanced prompt
@@ -318,6 +322,26 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages: finishedMessages }) => {
+        // Debug: Log finished messages to see LLM response
+        console.log("📋 onFinish called with", finishedMessages.length, "messages");
+        for (const msg of finishedMessages) {
+          console.log("📋 Finished message role:", msg.role);
+          if (msg.parts) {
+            for (const part of msg.parts) {
+              if (part.type === "text") {
+                console.log("📋 LLM Response text:", (part as any).text?.slice(0, 1000));
+                // Check for citations
+                const citationMatch = (part as any).text?.match(/<cite\s+[^>]*(?:\/>|>)/g);
+                if (citationMatch) {
+                  console.log("📋 Found", citationMatch.length, "citation(s) in response!");
+                } else {
+                  console.log("📋 No citations found in response");
+                }
+              }
+            }
+          }
+        }
+
         if (isToolApprovalFlow) {
           // For tool approval, update existing messages (tool state changed) and save new ones
           for (const finishedMsg of finishedMessages) {
