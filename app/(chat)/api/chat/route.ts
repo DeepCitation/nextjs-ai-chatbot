@@ -236,16 +236,30 @@ export async function POST(request: Request) {
           const messagesArray = await convertToModelMessages(uiMessages);
           finalMessages = messagesArray.map((msg, idx) => {
             if (idx === messagesArray.length - 1 && msg.role === "user") {
-              return {
-                ...msg,
-                content:
-                  typeof msg.content === "string"
-                    ? enhancedUserPrompt
-                    : msg.content,
-              };
+              // Handle both string content and array content (multimodal)
+              if (typeof msg.content === "string") {
+                return {
+                  ...msg,
+                  content: enhancedUserPrompt,
+                };
+              }
+              // For array content (multimodal), replace text parts with enhanced prompt
+              if (Array.isArray(msg.content)) {
+                return {
+                  ...msg,
+                  content: msg.content.map((part) => {
+                    if (part.type === "text") {
+                      return { ...part, text: enhancedUserPrompt };
+                    }
+                    return part;
+                  }),
+                };
+              }
             }
             return msg;
           });
+
+          console.log("📋 Final messages last user content type:", typeof finalMessages[finalMessages.length - 1]?.content, Array.isArray(finalMessages[finalMessages.length - 1]?.content) ? "array" : "not array");
 
           // Send fileDataParts back to client for verification later
           if (deepCitation.fileDataParts) {
