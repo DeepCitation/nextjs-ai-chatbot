@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     const deepcitation = new DeepCitation({ apiKey });
 
-    const result = await deepcitation.verifyCitationsFromLlmOutput({
+    const result = await deepcitation.verifyAll({
       llmOutput,
       fileDataParts,
     });
