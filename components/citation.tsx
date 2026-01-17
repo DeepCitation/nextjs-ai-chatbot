@@ -106,29 +106,75 @@ function PureCitationProvider({
 export const CitationProvider = memo(PureCitationProvider);
 
 // Custom cite component for use with markdown renderer
+// Maps to DeepCitation's <cite attachment_id='...' reasoning='...' key_span='...' full_phrase='...' start_page_key='...' line_ids='...' />
 interface CiteProps {
   attachment_id?: string;
-  page?: string;
-  start_page?: string;
+  reasoning?: string;
+  key_span?: string;
+  full_phrase?: string;
+  start_page_key?: string;
+  line_ids?: string;
+  timestamps?: string;
   children?: ReactNode;
+  node?: unknown; // react-markdown passes this
   [key: string]: unknown;
 }
 
-export function Cite({ attachment_id, page, start_page, children }: CiteProps) {
+export function Cite({
+  attachment_id,
+  reasoning,
+  key_span,
+  full_phrase,
+  start_page_key,
+  line_ids,
+  timestamps,
+  children,
+}: CiteProps) {
   const { citations, verifications } = useCitationContext();
 
-  // Build citation from props
+  // Parse line_ids from string format (e.g., "2-6" or "4")
+  let lineIds: number[] | null = null;
+  if (line_ids) {
+    const parts = line_ids.split("-").map((n) => parseInt(n.trim(), 10));
+    if (parts.length === 2) {
+      lineIds = [];
+      for (let i = parts[0]; i <= parts[1]; i++) {
+        lineIds.push(i);
+      }
+    } else if (parts.length === 1 && !isNaN(parts[0])) {
+      lineIds = [parts[0]];
+    }
+  }
+
+  // Parse timestamps from string format (e.g., "HH:MM:SS.SSS-HH:MM:SS.SSS")
+  let parsedTimestamps: { startTime?: string; endTime?: string } | undefined;
+  if (timestamps) {
+    const [startTime, endTime] = timestamps.split("-");
+    parsedTimestamps = { startTime, endTime };
+  }
+
+  // Build citation from props (matching DeepCitation's Citation interface)
   const citation: Citation = {
     attachmentId: attachment_id,
-    pageNumber: page ? parseInt(page, 10) : undefined,
-    startPageKey: start_page,
-    fullPhrase: typeof children === "string" ? children : undefined,
+    reasoning: reasoning,
+    keySpan: key_span,
+    fullPhrase: full_phrase || (typeof children === "string" ? children : undefined),
+    startPageKey: start_page_key,
+    lineIds: lineIds,
+    timestamps: parsedTimestamps,
   };
 
-  // Try to find matching citation and verification by attachment_id
+  // Try to find matching citation and verification by attachment_id and key_span
   const citationKey = Object.keys(citations).find((key) => {
     const c = citations[key];
-    return c.attachmentId === attachment_id;
+    // Match by attachment_id and key_span for more precise matching
+    if (c.attachmentId === attachment_id) {
+      if (key_span && c.keySpan) {
+        return c.keySpan === key_span;
+      }
+      return true;
+    }
+    return false;
   });
 
   const matchedCitation = citationKey ? citations[citationKey] : citation;
