@@ -7,8 +7,142 @@ import {
   type Verification,
 } from "@deepcitation/deepcitation-js";
 import { CitationComponent } from "@deepcitation/deepcitation-js/react";
-import { memo, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
+// Context for sharing citation/verification data
+interface CitationContextValue {
+  citations: Record<string, Citation>;
+  verifications: Record<string, Verification>;
+}
+
+const CitationContext = createContext<CitationContextValue>({
+  citations: {},
+  verifications: {},
+});
+
+export function useCitationContext() {
+  return useContext(CitationContext);
+}
+
+interface CitationProviderProps {
+  content: string;
+  fileDataParts?: Array<{
+    attachmentId: string;
+    deepTextPromptPortion: string;
+    filename?: string;
+  }>;
+  children: ReactNode;
+}
+
+function PureCitationProvider({
+  content,
+  fileDataParts,
+  children,
+}: CitationProviderProps) {
+  const [citations, setCitations] = useState<Record<string, Citation>>({});
+  const [verifications, setVerifications] = useState<
+    Record<string, Verification>
+  >({});
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [hasVerified, setHasVerified] = useState(false);
+
+  // Extract citations from content
+  useEffect(() => {
+    try {
+      const extractedCitations = getAllCitationsFromLlmOutput(content);
+      setCitations(extractedCitations);
+    } catch (error) {
+      console.error("Error extracting citations:", error);
+    }
+  }, [content]);
+
+  // Verify citations when they are extracted
+  useEffect(() => {
+    if (
+      Object.keys(citations).length > 0 &&
+      !isVerifying &&
+      !hasVerified
+    ) {
+      setIsVerifying(true);
+
+      fetch("/api/deepcitation/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          llmOutput: content,
+          fileDataParts,
+        }),
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.verifications) {
+            setVerifications(result.verifications);
+          }
+          setHasVerified(true);
+        })
+        .catch((error) => {
+          console.error("Error verifying citations:", error);
+        })
+        .finally(() => {
+          setIsVerifying(false);
+        });
+    }
+  }, [citations, content, fileDataParts, isVerifying, hasVerified]);
+
+  return (
+    <CitationContext.Provider value={{ citations, verifications }}>
+      {children}
+    </CitationContext.Provider>
+  );
+}
+
+export const CitationProvider = memo(PureCitationProvider);
+
+// Custom cite component for use with markdown renderer
+interface CiteProps {
+  attachment_id?: string;
+  page?: string;
+  start_page?: string;
+  children?: ReactNode;
+  [key: string]: unknown;
+}
+
+export function Cite({ attachment_id, page, start_page, children }: CiteProps) {
+  const { citations, verifications } = useCitationContext();
+
+  // Build citation from props
+  const citation: Citation = {
+    attachmentId: attachment_id,
+    pageNumber: page ? parseInt(page, 10) : undefined,
+    startPageKey: start_page,
+    fullPhrase: typeof children === "string" ? children : undefined,
+  };
+
+  // Try to find matching citation and verification by attachment_id
+  const citationKey = Object.keys(citations).find((key) => {
+    const c = citations[key];
+    return c.attachmentId === attachment_id;
+  });
+
+  const matchedCitation = citationKey ? citations[citationKey] : citation;
+  const matchedVerification = citationKey ? verifications[citationKey] : undefined;
+
+  return (
+    <CitationComponent
+      citation={matchedCitation}
+      verification={matchedVerification}
+    />
+  );
+}
+
+// Legacy component for backwards compatibility
 interface CitationDisplayProps {
   content: string;
   fileDataParts?: Array<{
