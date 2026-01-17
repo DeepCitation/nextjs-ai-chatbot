@@ -6,7 +6,10 @@ import {
   type Citation,
   type Verification,
 } from "@deepcitation/deepcitation-js";
-import { CitationComponent } from "@deepcitation/deepcitation-js/react";
+import {
+  CitationComponent,
+  generateCitationKey,
+} from "@deepcitation/deepcitation-js/react";
 import {
   createContext,
   memo,
@@ -164,21 +167,13 @@ export function Cite({
     timestamps: parsedTimestamps,
   };
 
-  // Try to find matching citation and verification by attachment_id and key_span
-  const citationKey = Object.keys(citations).find((key) => {
-    const c = citations[key];
-    // Match by attachment_id and key_span for more precise matching
-    if (c.attachmentId === attachment_id) {
-      if (key_span && c.keySpan) {
-        return c.keySpan === key_span;
-      }
-      return true;
-    }
-    return false;
-  });
+  // Generate the citation key using the same algorithm as the library
+  const citationKey = generateCitationKey(citation);
 
-  const matchedCitation = citationKey ? citations[citationKey] : citation;
-  const matchedVerification = citationKey ? verifications[citationKey] : undefined;
+  // Look up the matched citation and verification from context
+  // The keys should match since we use the same generateCitationKey function
+  const matchedCitation = citations[citationKey] || citation;
+  const matchedVerification = verifications[citationKey];
 
   return (
     <CitationComponent

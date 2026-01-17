@@ -240,7 +240,23 @@ export async function POST(request: Request) {
               data: deepCitation.fileDataParts,
             } as any);
           }
+
+          // Log the prompts being sent to the LLM
+          console.log("\n========== DeepCitation Enhanced Prompts ==========");
+          console.log("SYSTEM PROMPT:");
+          console.log(finalSystemPrompt);
+          console.log("\nUSER PROMPT (enhanced):");
+          console.log(enhancedUserPrompt);
+          console.log("===================================================\n");
         }
+
+        // Log the final prompts going to the LLM
+        console.log("\n========== Final LLM Request ==========");
+        console.log("SYSTEM PROMPT:");
+        console.log(finalSystemPrompt);
+        console.log("\nMESSAGES:");
+        console.log(JSON.stringify(finalMessages, null, 2));
+        console.log("========================================\n");
 
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
