@@ -1,7 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { DeepCitationIcon } from "@deepcitation/deepcitation-js";
+import { DeepCitationIcon } from "@deepcitation/deepcitation-js/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
 import { CheckIcon } from "lucide-react";
