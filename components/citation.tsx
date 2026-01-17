@@ -28,12 +28,8 @@ function PureCitationDisplay({ content, fileDataParts }: CitationDisplayProps) {
 
   // Extract citations from content
   useEffect(() => {
-    console.log("📋 CitationDisplay: Extracting citations from content length:", content.length);
-    console.log("📋 CitationDisplay: Content preview:", content.slice(0, 500));
-    console.log("📋 CitationDisplay: fileDataParts:", fileDataParts);
     try {
       const extractedCitations = getAllCitationsFromLlmOutput(content);
-      console.log("📋 CitationDisplay: Extracted", Object.keys(extractedCitations).length, "citations:", extractedCitations);
       setCitations(extractedCitations);
     } catch (error) {
       console.error("Error extracting citations:", error);
@@ -42,13 +38,11 @@ function PureCitationDisplay({ content, fileDataParts }: CitationDisplayProps) {
 
   // Verify citations when they are extracted
   useEffect(() => {
-    console.log("📋 CitationDisplay: Verify effect - citations count:", Object.keys(citations).length, "isVerifying:", isVerifying, "hasVerified:", hasVerified);
     if (
       Object.keys(citations).length > 0 &&
       !isVerifying &&
       !hasVerified
     ) {
-      console.log("📋 CitationDisplay: Starting verification...");
       setIsVerifying(true);
 
       fetch("/api/deepcitation/verify", {
@@ -61,7 +55,6 @@ function PureCitationDisplay({ content, fileDataParts }: CitationDisplayProps) {
       })
         .then((res) => res.json())
         .then((result) => {
-          console.log("📋 CitationDisplay: Verification result:", result);
           if (result.verifications) {
             setVerifications(result.verifications);
           }
