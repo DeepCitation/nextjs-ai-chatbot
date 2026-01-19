@@ -42,13 +42,6 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Fast and capable",
   },
-  // xAI (cheap)
-  {
-    id: "xai/grok-4.1-fast-non-reasoning",
-    name: "Grok 4.1 Fast",
-    provider: "xai",
-    description: "Fast with 30K context",
-  },
 ];
 
 // Group models by provider for UI
