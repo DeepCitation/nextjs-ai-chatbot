@@ -94,7 +94,14 @@ export function getTrailingMessageId({
 }
 
 export function sanitizeText(text: string) {
-  return text.replace('<has_function_call>', '');
+  let result = text.replace('<has_function_call>', '');
+
+  // Hide incomplete citation tags during streaming
+  // Matches incomplete <cite tags that haven't been closed yet
+  // e.g., "<cite", "<cite ", "<cite key_span=", "<cite key_span=\"hello"
+  result = result.replace(/<cite(?:\s+[^>]*)?$/g, '');
+
+  return result;
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {

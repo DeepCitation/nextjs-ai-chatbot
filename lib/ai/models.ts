@@ -18,8 +18,8 @@ export const chatModels: ChatModel[] = [
   },
   // OpenAI (cheap)
   {
-    id: "openai/gpt-5-mini",
-    name: "GPT-5 Mini",
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
     provider: "openai",
     description: "Fast and cost-effective",
   },
