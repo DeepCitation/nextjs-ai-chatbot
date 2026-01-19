@@ -22,7 +22,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, DeepCitationData } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
@@ -186,6 +186,9 @@ export function Chat({
   );
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [deepCitation, setDeepCitation] = useState<DeepCitationData>({
+    enabled: false,
+  });
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
   useAutoResume({
@@ -222,6 +225,7 @@ export function Chat({
             <MultimodalInput
               attachments={attachments}
               chatId={id}
+              deepCitation={deepCitation}
               input={input}
               messages={messages}
               onModelChange={setCurrentModelId}
@@ -229,6 +233,7 @@ export function Chat({
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
               setAttachments={setAttachments}
+              setDeepCitation={setDeepCitation}
               setInput={setInput}
               setMessages={setMessages}
               status={status}
@@ -242,6 +247,7 @@ export function Chat({
         addToolApprovalResponse={addToolApprovalResponse}
         attachments={attachments}
         chatId={id}
+        deepCitation={deepCitation}
         input={input}
         isReadonly={isReadonly}
         messages={messages}
@@ -250,6 +256,7 @@ export function Chat({
         selectedVisibilityType={visibilityType}
         sendMessage={sendMessage}
         setAttachments={setAttachments}
+        setDeepCitation={setDeepCitation}
         setInput={setInput}
         setMessages={setMessages}
         status={status}

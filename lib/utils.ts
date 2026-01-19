@@ -4,6 +4,7 @@ import type {
   UIMessage,
   UIMessagePart,
 } from 'ai';
+import { replaceCitations } from '@deepcitation/deepcitation-js';
 import { type ClassValue, clsx } from 'clsx';
 import { formatISO } from 'date-fns';
 import { twMerge } from 'tailwind-merge';
@@ -94,7 +95,12 @@ export function getTrailingMessageId({
 }
 
 export function sanitizeText(text: string) {
-  return text.replace('<has_function_call>', '');
+  let result = text.replace('<has_function_call>', '');
+
+  // Strip citation tags using deepcitation-js utility
+  result = replaceCitations(result);
+
+  return result;
 }
 
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {

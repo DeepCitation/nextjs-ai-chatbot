@@ -1,6 +1,7 @@
 "use client";
 
 import type { UseChatHelpers } from "@ai-sdk/react";
+import { DeepCitationIcon } from "@deepcitation/deepcitation-js/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
 import { CheckIcon } from "lucide-react";
@@ -32,7 +33,7 @@ import {
   DEFAULT_CHAT_MODEL,
   modelsByProvider,
 } from "@/lib/ai/models";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, DeepCitationData } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   PromptInput,
@@ -68,6 +69,8 @@ function PureMultimodalInput({
   selectedVisibilityType,
   selectedModelId,
   onModelChange,
+  deepCitation,
+  setDeepCitation,
 }: {
   chatId: string;
   input: string;
@@ -83,6 +86,8 @@ function PureMultimodalInput({
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
   onModelChange?: (modelId: string) => void;
+  deepCitation: DeepCitationData;
+  setDeepCitation: Dispatch<SetStateAction<DeepCitationData>>;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -144,29 +149,145 @@ function PureMultimodalInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
-  const submitForm = useCallback(() => {
+  // Prepare files for DeepCitation when toggle is enabled
+  const prepareDeepCitation = useCallback(async () => {
+    if (attachments.length === 0) return;
+
+    setDeepCitation((prev) => ({ ...prev, isPreparing: true }));
+
+    try {
+      const response = await fetch("/api/deepcitation/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          files: attachments.map((a) => ({
+            url: a.url,
+            filename: a.name,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDeepCitation((prev) => ({
+          ...prev,
+          deepTextPromptPortion: data.deepTextPromptPortion,
+          fileDataParts: data.fileDataParts,
+          isPreparing: false,
+        }));
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to prepare files for citation");
+        setDeepCitation((prev) => ({
+          ...prev,
+          enabled: false,
+          isPreparing: false,
+        }));
+      }
+    } catch (_error) {
+      toast.error("Failed to prepare files for citation");
+      setDeepCitation((prev) => ({
+        ...prev,
+        enabled: false,
+        isPreparing: false,
+      }));
+    }
+  }, [attachments, setDeepCitation]);
+
+  // When DeepCitation is enabled and we have attachments, prepare them
+  useEffect(() => {
+    if (
+      deepCitation.enabled &&
+      attachments.length > 0 &&
+      !deepCitation.deepTextPromptPortion &&
+      !deepCitation.isPreparing
+    ) {
+      prepareDeepCitation();
+    }
+  }, [
+    deepCitation.enabled,
+    deepCitation.deepTextPromptPortion,
+    deepCitation.isPreparing,
+    attachments.length,
+    prepareDeepCitation,
+  ]);
+
+  // Auto-enable DeepCitation when attachments are added (if not already enabled)
+  // Also reset prepared data when attachments change
+  useEffect(() => {
+    if (attachments.length > 0 && !deepCitation.enabled) {
+      // Auto-enable citations when files are uploaded
+      setDeepCitation((prev) => ({
+        ...prev,
+        enabled: true,
+        deepTextPromptPortion: undefined,
+        fileDataParts: undefined,
+      }));
+    } else if (deepCitation.enabled && deepCitation.deepTextPromptPortion) {
+      // Clear prepared data when attachments change
+      setDeepCitation((prev) => ({
+        ...prev,
+        deepTextPromptPortion: undefined,
+        fileDataParts: undefined,
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachments.length]);
+
+  const submitForm = useCallback(async () => {
+    // If DeepCitation is enabled but not prepared yet, wait for preparation
+    if (
+      deepCitation.enabled &&
+      attachments.length > 0 &&
+      !deepCitation.deepTextPromptPortion
+    ) {
+      if (deepCitation.isPreparing) {
+        toast.error("Please wait for DeepCitation to finish preparing files");
+        return;
+      }
+      // Prepare files first
+      await prepareDeepCitation();
+      return; // Will re-trigger submit after preparation
+    }
+
     window.history.pushState({}, "", `/chat/${chatId}`);
 
-    sendMessage({
-      role: "user",
-      parts: [
-        ...attachments.map((attachment) => ({
-          type: "file" as const,
-          url: attachment.url,
-          name: attachment.name,
-          mediaType: attachment.contentType,
-        })),
-        {
-          type: "text",
-          text: input,
-        },
-      ],
-    });
+    // Prepare DeepCitation body data if enabled
+    const deepCitationBody = deepCitation.enabled
+      ? {
+          deepCitation: {
+            enabled: true,
+            deepTextPromptPortion: deepCitation.deepTextPromptPortion,
+            fileDataParts: deepCitation.fileDataParts,
+          },
+        }
+      : {};
+
+    sendMessage(
+      {
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            url: attachment.url,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      },
+      { body: deepCitationBody }
+    );
 
     setAttachments([]);
     setLocalStorageInput("");
     resetHeight();
     setInput("");
+    // Reset DeepCitation state after sending
+    setDeepCitation({ enabled: false });
 
     if (width && width > 768) {
       textareaRef.current?.focus();
@@ -181,6 +302,9 @@ function PureMultimodalInput({
     width,
     chatId,
     resetHeight,
+    deepCitation,
+    setDeepCitation,
+    prepareDeepCitation,
   ]);
 
   const uploadFile = useCallback(async (file: File) => {
@@ -303,7 +427,9 @@ function PureMultimodalInput({
           <SuggestedActions
             chatId={chatId}
             selectedVisibilityType={selectedVisibilityType}
-            sendMessage={sendMessage}
+            setAttachments={setAttachments}
+            setDeepCitation={setDeepCitation}
+            setInput={setInput}
           />
         )}
 
@@ -335,6 +461,8 @@ function PureMultimodalInput({
             {attachments.map((attachment) => (
               <PreviewAttachment
                 attachment={attachment}
+                isPrepared={deepCitation.enabled && !!deepCitation.deepTextPromptPortion}
+                isPreparing={deepCitation.enabled && deepCitation.isPreparing}
                 key={attachment.url}
                 onRemove={() => {
                   setAttachments((currentAttachments) =>
@@ -368,7 +496,7 @@ function PureMultimodalInput({
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder="Upload a PDF and ask a question..."
             ref={textareaRef}
             rows={1}
             value={input}
@@ -385,6 +513,18 @@ function PureMultimodalInput({
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
             />
+            <div
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs transition-all duration-200",
+                attachments.length > 0
+                  ? "bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
+                  : "text-muted-foreground/50"
+              )}
+              title={attachments.length > 0 ? "DeepCitation enabled" : "Upload a file to enable DeepCitation"}
+            >
+              <DeepCitationIcon className="size-3.5" />
+              <span className="hidden sm:inline">Deep Citation</span>
+            </div>
           </PromptInputTools>
 
           {status === "submitted" ? (
@@ -421,6 +561,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
+      return false;
+    }
+    if (!equal(prevProps.deepCitation, nextProps.deepCitation)) {
       return false;
     }
 

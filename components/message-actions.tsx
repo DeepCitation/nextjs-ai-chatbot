@@ -1,3 +1,4 @@
+import { replaceCitations } from "@deepcitation/deepcitation-js";
 import equal from "fast-deep-equal";
 import { memo } from "react";
 import { toast } from "sonner";
@@ -40,7 +41,9 @@ export function PureMessageActions({
       return;
     }
 
-    await copyToClipboard(textFromParts);
+    // Strip citation tags before copying to clipboard
+    const cleanText = replaceCitations(textFromParts);
+    await copyToClipboard(cleanText);
     toast.success("Copied to clipboard!");
   };
 
