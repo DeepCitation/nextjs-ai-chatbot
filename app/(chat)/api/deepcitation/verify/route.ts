@@ -36,22 +36,31 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { llmOutput, fileDataParts } = requestSchema.parse(body);
 
-    console.log("📋 Verify API: Received request");
-    console.log("📋 Verify API: llmOutput length:", llmOutput.length);
-    console.log("📋 Verify API: llmOutput preview:", llmOutput.slice(0, 500));
-    console.log("📋 Verify API: fileDataParts count:", fileDataParts?.length);
-    console.log("📋 Verify API: fileDataParts:", fileDataParts?.map(f => ({ attachmentId: f.attachmentId, filename: f.filename, deepTextLength: f.deepTextPromptPortion.length })));
+    // Log the verification request
+    console.log("\n========== DeepCitation Verify Request ==========");
+    console.log("LLM Output (first 500 chars):");
+    console.log(llmOutput.substring(0, 500) + (llmOutput.length > 500 ? "..." : ""));
+    console.log("\nFile Data Parts:");
+    console.log(JSON.stringify(fileDataParts?.map(f => ({
+      attachmentId: f.attachmentId,
+      filename: f.filename,
+      promptLength: f.deepTextPromptPortion?.length,
+    })), null, 2));
+    console.log("=================================================\n");
 
     const deepcitation = new DeepCitation({ apiKey });
 
-    // Verify all citations from LLM output
-    console.log("📋 Verify API: Calling verifyCitationsFromLlmOutput...");
-    const result = await deepcitation.verifyCitationsFromLlmOutput({
+    const result = await deepcitation.verifyAll({
       llmOutput,
       fileDataParts,
     });
 
-    console.log("📋 Verify API: Result:", JSON.stringify(result, null, 2));
+    // Log the verification result
+    console.log("\n========== DeepCitation Verify Result ==========");
+    console.log("Verifications count:", Object.keys(result.verifications || {}).length);
+    console.log("Verifications:");
+    console.log(JSON.stringify(result.verifications, null, 2));
+    console.log("================================================\n");
 
     return NextResponse.json(result);
   } catch (error) {
