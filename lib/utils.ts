@@ -97,9 +97,10 @@ export function sanitizeText(text: string) {
   let result = text.replace('<has_function_call>', '');
 
   // Hide incomplete citation tags during streaming
-  // Matches incomplete <cite tags that haven't been closed yet
+  // Matches incomplete <cite tags that haven't been closed with />
   // e.g., "<cite", "<cite ", "<cite key_span=", "<cite key_span=\"hello"
-  result = result.replace(/<cite(?:\s+[^>]*)?$/g, '');
+  // Only remove if tag is incomplete (no closing />)
+  result = result.replace(/<cite(?:\s+(?:[^/]|\/(?!>))*)?$/g, '');
 
   return result;
 }
