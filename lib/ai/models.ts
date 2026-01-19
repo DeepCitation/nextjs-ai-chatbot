@@ -18,16 +18,10 @@ export const chatModels: ChatModel[] = [
   },
   // OpenAI (cheap)
   {
-    id: "openai/gpt-4.1-mini",
-    name: "GPT-4.1 Mini",
+    id: "openai/gpt-5-mini",
+    name: "GPT-5 Mini",
     provider: "openai",
-    description: "Fast and cost-effective for simple tasks",
-  },
-  {
-    id: "openai/gpt-4.1-nano",
-    name: "GPT-4.1 Nano",
-    provider: "openai",
-    description: "Ultra fast and very affordable",
+    description: "Fast and cost-effective",
   },
   // Google (cheap)
   {
@@ -37,10 +31,10 @@ export const chatModels: ChatModel[] = [
     description: "Ultra fast and affordable",
   },
   {
-    id: "google/gemini-2.0-flash",
-    name: "Gemini 2.0 Flash",
+    id: "google/gemini-2.0-flash-lite",
+    name: "Gemini 2.0 Flash Lite",
     provider: "google",
-    description: "Fast and capable",
+    description: "Fast and very affordable",
   },
 ];
 
