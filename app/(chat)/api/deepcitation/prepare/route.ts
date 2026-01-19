@@ -48,9 +48,19 @@ export async function POST(request: Request) {
     const result = await deepcitation.prepareFiles(fileInputs);
     const { fileDataParts, deepTextPromptPortion } = result;
 
+    // Base64 encode the deepTextPromptPortion array to prevent newline escaping issues
+    const encodedDeepTextPromptPortion = deepTextPromptPortion.map((text: string) =>
+      Buffer.from(text, "utf-8").toString("base64")
+    );
+    const encodedFileDataParts = fileDataParts.map((part: { attachmentId: string; deepTextPromptPortion: string; filename?: string }) => ({
+      ...part,
+      deepTextPromptPortion: Buffer.from(part.deepTextPromptPortion, "utf-8").toString("base64"),
+    }));
+
     return NextResponse.json({
-      fileDataParts,
-      deepTextPromptPortion,
+      fileDataParts: encodedFileDataParts,
+      deepTextPromptPortion: encodedDeepTextPromptPortion,
+      encoded: true, // Flag to indicate base64 encoding
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",

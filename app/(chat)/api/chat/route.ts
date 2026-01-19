@@ -187,6 +187,11 @@ export async function POST(request: Request) {
           deepCitation?.deepTextPromptPortion &&
           deepCitation.deepTextPromptPortion.length > 0
         ) {
+          // Decode base64-encoded deepTextPromptPortion (to handle newline escaping issues)
+          const decodedDeepTextPromptPortion = deepCitation.deepTextPromptPortion.map(
+            (text: string) => Buffer.from(text, "base64").toString("utf-8")
+          );
+
           // Get the last user message text for enhancement
           const lastUserMessage = uiMessages.findLast((m) => m.role === "user");
           const userTextPart = lastUserMessage?.parts?.find(
@@ -200,7 +205,7 @@ export async function POST(request: Request) {
             {
               systemPrompt: finalSystemPrompt,
               userPrompt,
-              deepTextPromptPortion: deepCitation.deepTextPromptPortion,
+              deepTextPromptPortion: decodedDeepTextPromptPortion,
             }
           );
 
@@ -233,11 +238,17 @@ export async function POST(request: Request) {
             return msg;
           });
 
-          // Send fileDataParts back to client for verification later
+          // Send fileDataParts back to client for verification later (decode base64)
           if (deepCitation.fileDataParts) {
+            const decodedFileDataParts = deepCitation.fileDataParts.map(
+              (part: { attachmentId: string; deepTextPromptPortion: string; filename?: string }) => ({
+                ...part,
+                deepTextPromptPortion: Buffer.from(part.deepTextPromptPortion, "base64").toString("utf-8"),
+              })
+            );
             dataStream.write({
               type: "data-deepcitation-fileparts",
-              data: deepCitation.fileDataParts,
+              data: decodedFileDataParts,
             } as any);
           }
 
