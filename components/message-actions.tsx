@@ -42,7 +42,7 @@ export function PureMessageActions({
     }
 
     // Strip citation tags before copying to clipboard
-    const cleanText = replaceCitations(textFromParts, { leaveKeySpanBehind: true });
+    const cleanText = replaceCitations(textFromParts);
     await copyToClipboard(cleanText);
     toast.success("Copied to clipboard!");
   };
