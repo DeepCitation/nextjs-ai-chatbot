@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
+@import "@deepcitation/deepcitation-js/tailwind.css";
 
 /* include utility classes in streamdown */
 @source '../node_modules/streamdown/dist/index.js';
