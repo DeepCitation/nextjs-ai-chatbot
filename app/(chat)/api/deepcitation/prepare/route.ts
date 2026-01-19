@@ -48,18 +48,6 @@ export async function POST(request: Request) {
     const result = await deepcitation.prepareFiles(fileInputs);
     const { fileDataParts, deepTextPromptPortion } = result;
 
-    console.log("📋 DeepCitation prepareFiles result:", {
-      fileDataPartsCount: fileDataParts?.length,
-      fileDataParts: fileDataParts?.map((f) => ({
-        attachmentId: f.attachmentId,
-        hasDeepTextPromptPortion: !!f.deepTextPromptPortion,
-        deepTextPromptPortionLength: f.deepTextPromptPortion?.length,
-        filename: f.filename,
-      })),
-      deepTextPromptPortionCount: deepTextPromptPortion?.length,
-      deepTextPromptPortionLengths: deepTextPromptPortion?.map((d) => d?.length),
-    });
-
     return NextResponse.json({
       fileDataParts,
       deepTextPromptPortion,
