@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
 
+// Disable caching for this route
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const requestSchema = z.object({
   files: z.array(
     z.object({
@@ -37,7 +41,7 @@ export async function POST(request: Request) {
     // Fetch files from URLs and convert to buffers
     const fileInputs = await Promise.all(
       files.map(async ({ url, filename }) => {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "no-store" });
         const arrayBuffer = await response.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         return { file: buffer, filename };
@@ -51,6 +55,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       fileDataParts,
       deepTextPromptPortion,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      },
     });
   } catch (error) {
     console.error("DeepCitation prepare error:", error);

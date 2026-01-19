@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
 
+// Disable caching for this route
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 const requestSchema = z.object({
   llmOutput: z.string(),
   fileDataParts: z
@@ -64,7 +68,13 @@ export async function POST(request: Request) {
     console.log(JSON.stringify(result.verifications, null, 2));
     console.log("================================================\n");
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      },
+    });
   } catch (error) {
     console.error("DeepCitation verify error:", error);
     return NextResponse.json(
