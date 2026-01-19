@@ -50,7 +50,9 @@ export async function POST(request: Request) {
 
     const deepcitation = new DeepCitation({ apiKey });
 
-    const result = await deepcitation.verifyAll({
+    // Note: In deepcitation-js 1.1.39, the method was renamed from verifyAll to verify
+    // verifyAttachment is also available for per-attachment verification with pre-parsed citations
+    const result = await deepcitation.verify({
       llmOutput,
       fileDataParts,
     });
