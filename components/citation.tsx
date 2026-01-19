@@ -60,6 +60,11 @@ function PureCitationProvider({
   useEffect(() => {
     try {
       const extractedCitations = getAllCitationsFromLlmOutput(content);
+      console.log("[CitationProvider] Extracted citations:", {
+        count: Object.keys(extractedCitations).length,
+        keys: Object.keys(extractedCitations),
+        citations: extractedCitations,
+      });
       setCitations(extractedCitations);
     } catch (error) {
       console.error("Error extracting citations:", error);
@@ -74,6 +79,7 @@ function PureCitationProvider({
       !hasVerified
     ) {
       setIsVerifying(true);
+      console.log("[CitationProvider] Starting verification for", Object.keys(citations).length, "citations");
 
       fetch("/api/deepcitation/verify", {
         method: "POST",
@@ -85,6 +91,12 @@ function PureCitationProvider({
       })
         .then((res) => res.json())
         .then((result) => {
+          console.log("[CitationProvider] Verification result:", {
+            hasVerifications: !!result.verifications,
+            verificationCount: Object.keys(result.verifications || {}).length,
+            verificationKeys: Object.keys(result.verifications || {}),
+            verifications: result.verifications,
+          });
           if (result.verifications) {
             setVerifications(result.verifications);
           }
@@ -174,6 +186,17 @@ export function Cite({
   // The keys should match since we use the same generateCitationKey function
   const matchedCitation = citations[citationKey] || citation;
   const matchedVerification = verifications[citationKey];
+
+  // Log for debugging
+  console.log("[Cite] Rendering citation:", {
+    props: { attachment_id, key_span, full_phrase, start_page_key },
+    generatedKey: citationKey,
+    availableCitationKeys: Object.keys(citations),
+    availableVerificationKeys: Object.keys(verifications),
+    hasMatchedCitation: !!citations[citationKey],
+    hasMatchedVerification: !!matchedVerification,
+    matchedVerification,
+  });
 
   return (
     <CitationComponent

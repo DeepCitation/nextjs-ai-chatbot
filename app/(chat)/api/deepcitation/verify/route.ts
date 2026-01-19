@@ -36,12 +36,31 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { llmOutput, fileDataParts } = requestSchema.parse(body);
 
+    // Log the verification request
+    console.log("\n========== DeepCitation Verify Request ==========");
+    console.log("LLM Output (first 500 chars):");
+    console.log(llmOutput.substring(0, 500) + (llmOutput.length > 500 ? "..." : ""));
+    console.log("\nFile Data Parts:");
+    console.log(JSON.stringify(fileDataParts?.map(f => ({
+      attachmentId: f.attachmentId,
+      filename: f.filename,
+      promptLength: f.deepTextPromptPortion?.length,
+    })), null, 2));
+    console.log("=================================================\n");
+
     const deepcitation = new DeepCitation({ apiKey });
 
     const result = await deepcitation.verifyAll({
       llmOutput,
       fileDataParts,
     });
+
+    // Log the verification result
+    console.log("\n========== DeepCitation Verify Result ==========");
+    console.log("Verifications count:", Object.keys(result.verifications || {}).length);
+    console.log("Verifications:");
+    console.log(JSON.stringify(result.verifications, null, 2));
+    console.log("================================================\n");
 
     return NextResponse.json(result);
   } catch (error) {
