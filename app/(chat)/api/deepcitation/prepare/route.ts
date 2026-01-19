@@ -4,10 +4,6 @@ import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
 
-// Disable caching for this route
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
 const requestSchema = z.object({
   files: z.array(
     z.object({

@@ -42,10 +42,6 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
-// Disable caching to ensure fresh LLM responses
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
