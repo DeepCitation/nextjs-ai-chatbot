@@ -5,7 +5,7 @@ import { memo, useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
-import { CitationProvider, hasCitations } from "./citation";
+import { ResponseWithCitations, hasCitations } from "./citation";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
@@ -136,42 +136,35 @@ const PurePreviewMessage = ({
                 const showCitations =
                   message.role === "assistant" && hasCitations(textContent);
 
-                const messageContent = (
-                <MessageContent
-                  className={cn({
-                    "wrap-break-word w-fit rounded-2xl px-3 py-2 text-right text-white":
-                      message.role === "user",
-                    "bg-transparent px-0 py-0 text-left":
-                      message.role === "assistant",
-                  })}
-                  data-testid="message-content"
-                  style={
-                    message.role === "user"
-                      ? { backgroundColor: "#006cff" }
-                      : undefined
-                  }
-                >
-                  <Response>{textContent}</Response>
-                </MessageContent>
-              );
-
-              // Wrap with CitationProvider if citations are present
-              if (showCitations) {
                 return (
                   <div key={key}>
-                    <CitationProvider
-                      content={textContent}
-                      fileDataParts={
-                        fileDataParts.length > 0 ? fileDataParts : undefined
+                    <MessageContent
+                      className={cn({
+                        "wrap-break-word w-fit rounded-2xl px-3 py-2 text-right text-white":
+                          message.role === "user",
+                        "bg-transparent px-0 py-0 text-left":
+                          message.role === "assistant",
+                      })}
+                      data-testid="message-content"
+                      style={
+                        message.role === "user"
+                          ? { backgroundColor: "#006cff" }
+                          : undefined
                       }
                     >
-                      {messageContent}
-                    </CitationProvider>
+                      {showCitations ? (
+                        <ResponseWithCitations
+                          content={textContent}
+                          fileDataParts={
+                            fileDataParts.length > 0 ? fileDataParts : undefined
+                          }
+                        />
+                      ) : (
+                        <Response>{textContent}</Response>
+                      )}
+                    </MessageContent>
                   </div>
                 );
-              }
-
-              return <div key={key}>{messageContent}</div>;
               }
 
               if (mode === "edit") {
