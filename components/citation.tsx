@@ -2,6 +2,7 @@
 
 import {
   getAllCitationsFromLlmOutput,
+  parseCitation,
   type Citation,
   type Verification,
 } from "@deepcitation/deepcitation-js";
@@ -9,45 +10,27 @@ import {
   CitationComponent,
   generateCitationKey,
 } from "@deepcitation/deepcitation-js/react";
-import {
-  createContext,
-  memo,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Response } from "./elements/response";
 
-// Context for sharing citation/verification data
-interface CitationContextValue {
-  citations: Record<string, Citation>;
-  verifications: Record<string, Verification>;
-}
-
-const CitationContext = createContext<CitationContextValue>({
-  citations: {},
-  verifications: {},
-});
-
-export function useCitationContext() {
-  return useContext(CitationContext);
-}
-
-interface CitationProviderProps {
+interface ResponseWithCitationsProps {
   content: string;
   fileDataParts?: Array<{
     attachmentId: string;
     deepTextPromptPortion: string;
     filename?: string;
   }>;
-  children: ReactNode;
 }
 
-function PureCitationProvider({
+/**
+ * Renders markdown content with inline CitationComponent elements.
+ * Parses the content to find <cite> tags, renders markdown segments with Response,
+ * and inserts CitationComponent where citations appear.
+ */
+function PureResponseWithCitations({
   content,
   fileDataParts,
-  children,
-}: CitationProviderProps) {
+}: ResponseWithCitationsProps) {
   const [citations, setCitations] = useState<Record<string, Citation>>({});
   const [verifications, setVerifications] = useState<
     Record<string, Verification>
@@ -59,11 +42,6 @@ function PureCitationProvider({
   useEffect(() => {
     try {
       const extractedCitations = getAllCitationsFromLlmOutput(content);
-      console.log("[CitationProvider] Extracted citations:", {
-        count: Object.keys(extractedCitations).length,
-        keys: Object.keys(extractedCitations),
-        citations: extractedCitations,
-      });
       setCitations(extractedCitations);
     } catch (error) {
       console.error("Error extracting citations:", error);
@@ -78,7 +56,6 @@ function PureCitationProvider({
       !hasVerified
     ) {
       setIsVerifying(true);
-      console.log("[CitationProvider] Starting verification for", Object.keys(citations).length, "citations");
 
       fetch("/api/deepcitation/verify", {
         method: "POST",
@@ -90,12 +67,6 @@ function PureCitationProvider({
       })
         .then((res) => res.json())
         .then((result) => {
-          console.log("[CitationProvider] Verification result:", {
-            hasVerifications: !!result.verifications,
-            verificationCount: Object.keys(result.verifications || {}).length,
-            verificationKeys: Object.keys(result.verifications || {}),
-            verifications: result.verifications,
-          });
           if (result.verifications) {
             setVerifications(result.verifications);
           }
@@ -110,100 +81,81 @@ function PureCitationProvider({
     }
   }, [citations, content, fileDataParts, isVerifying, hasVerified]);
 
-  return (
-    <CitationContext.Provider value={{ citations, verifications }}>
-      {children}
-    </CitationContext.Provider>
-  );
-}
+  // Parse content into segments of markdown and citations
+  const segments = useMemo(() => {
+    const citationRegex = /<cite\s+[^>]*(?:\/>|>[^<]*<\/cite>)/g;
+    const result: Array<{ type: "markdown" | "citation"; content: string }> = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
 
-export const CitationProvider = memo(PureCitationProvider);
-
-// Custom cite component for use with markdown renderer (Streamdown)
-// Maps to DeepCitation's <cite attachment_id='...' reasoning='...' key_span='...' full_phrase='...' start_page_key='...' line_ids='...' />
-interface CiteProps {
-  attachment_id?: string;
-  reasoning?: string;
-  key_span?: string;
-  full_phrase?: string;
-  start_page_key?: string;
-  line_ids?: string;
-  timestamps?: string;
-  children?: ReactNode;
-  node?: unknown; // react-markdown passes this
-  [key: string]: unknown;
-}
-
-export function Cite({
-  attachment_id,
-  reasoning,
-  key_span,
-  full_phrase,
-  start_page_key,
-  line_ids,
-  timestamps,
-  children,
-}: CiteProps) {
-  const { citations, verifications } = useCitationContext();
-
-  // Parse line_ids from string format (e.g., "2-6" or "4")
-  let lineIds: number[] | null = null;
-  if (line_ids) {
-    const parts = line_ids.split("-").map((n) => parseInt(n.trim(), 10));
-    if (parts.length === 2) {
-      lineIds = [];
-      for (let i = parts[0]; i <= parts[1]; i++) {
-        lineIds.push(i);
+    while ((match = citationRegex.exec(content)) !== null) {
+      // Add markdown before this citation
+      if (match.index > lastIndex) {
+        result.push({
+          type: "markdown",
+          content: content.slice(lastIndex, match.index),
+        });
       }
-    } else if (parts.length === 1 && !isNaN(parts[0])) {
-      lineIds = [parts[0]];
+
+      result.push({
+        type: "citation",
+        content: match[0],
+      });
+
+      lastIndex = match.index + match[0].length;
     }
-  }
 
-  // Parse timestamps from string format (e.g., "HH:MM:SS.SSS-HH:MM:SS.SSS")
-  let parsedTimestamps: { startTime?: string; endTime?: string } | undefined;
-  if (timestamps) {
-    const [startTime, endTime] = timestamps.split("-");
-    parsedTimestamps = { startTime, endTime };
-  }
+    // Add remaining markdown
+    if (lastIndex < content.length) {
+      result.push({ type: "markdown", content: content.slice(lastIndex) });
+    }
 
-  // Build citation from props (matching DeepCitation's Citation interface)
-  const citation: Citation = {
-    attachmentId: attachment_id,
-    reasoning: reasoning,
-    keySpan: key_span,
-    fullPhrase: full_phrase || (typeof children === "string" ? children : undefined),
-    startPageKey: start_page_key,
-    lineIds: lineIds,
-    timestamps: parsedTimestamps,
-  };
+    return result;
+  }, [content]);
 
-  // Generate the citation key using the same algorithm as the library
-  const citationKey = generateCitationKey(citation);
+  // Render segments
+  const elements: ReactNode[] = [];
+  const citationKeys = Object.keys(citations);
+  let citationIndex = 0;
 
-  // Look up the matched citation and verification from context
-  // The keys should match since we use the same generateCitationKey function
-  const matchedCitation = citations[citationKey] || citation;
-  const matchedVerification = verifications[citationKey];
+  segments.forEach((segment, index) => {
+    if (segment.type === "markdown") {
+      // Only render non-empty markdown
+      if (segment.content.trim()) {
+        elements.push(
+          <Response key={`md-${index}`}>{segment.content}</Response>
+        );
+      }
+    } else {
+      // Parse the cite tag and render CitationComponent
+      const { citation } = parseCitation(segment.content);
+      const citationKey = generateCitationKey(citation);
 
-  // Log for debugging
-  console.log("[Cite] Rendering citation:", {
-    props: { attachment_id, key_span, full_phrase, start_page_key },
-    generatedKey: citationKey,
-    availableCitationKeys: Object.keys(citations),
-    availableVerificationKeys: Object.keys(verifications),
-    hasMatchedCitation: !!citations[citationKey],
-    hasMatchedVerification: !!matchedVerification,
-    matchedVerification,
+      // Look up verification - try by generated key first, then by index order
+      const matchedCitation = citations[citationKey] || citation;
+      let matchedVerification = verifications[citationKey];
+
+      // Fallback: try matching by order if key doesn't match
+      if (!matchedVerification && citationKeys[citationIndex]) {
+        matchedVerification = verifications[citationKeys[citationIndex]];
+      }
+
+      elements.push(
+        <CitationComponent
+          key={`cite-${index}`}
+          citation={matchedCitation}
+          verification={matchedVerification}
+        />
+      );
+
+      citationIndex++;
+    }
   });
 
-  return (
-    <CitationComponent
-      citation={matchedCitation}
-      verification={matchedVerification}
-    />
-  );
+  return <>{elements}</>;
 }
+
+export const ResponseWithCitations = memo(PureResponseWithCitations);
 
 // Helper to check if content has citations
 export function hasCitations(content: string): boolean {
